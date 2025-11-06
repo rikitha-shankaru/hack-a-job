@@ -160,15 +160,19 @@ class JobParser:
             date_str = date_str.replace('Z', '')
         
         # Try parsing with different formats
+        today = date_type.today()
         for fmt in date_formats:
             try:
                 parsed_date = datetime.strptime(date_str, fmt).date()
-                # Validate: reject future dates (parsing errors)
-                today = date_type.today()
+                # STRICT: reject ALL future dates - they're definitely parsing errors
                 if parsed_date > today:
-                    # This is likely a parsing error (e.g., MM/DD/YYYY vs DD/MM/YYYY confusion)
-                    # Or the date is actually in the future (unlikely for job postings)
-                    print(f"Warning: Parsed future date {parsed_date} from '{date_str}' - rejecting")
+                    print(f"Rejecting future date {parsed_date} from '{date_str}' (today: {today})")
+                    return None
+                # Also reject dates too far in the past (more than 1 year old)
+                from datetime import timedelta
+                one_year_ago = today - timedelta(days=365)
+                if parsed_date < one_year_ago:
+                    print(f"Rejecting old date {parsed_date} from '{date_str}' (more than 1 year old)")
                     return None
                 return parsed_date
             except ValueError:
@@ -180,7 +184,13 @@ class JobParser:
             parsed_date = parsed.date()
             today = date_type.today()
             if parsed_date > today:
-                print(f"Warning: Parsed future date {parsed_date} from '{date_str}' - rejecting")
+                print(f"Rejecting future ISO date {parsed_date} from '{date_str}' (today: {today})")
+                return None
+            # Also reject dates too far in the past
+            from datetime import timedelta
+            one_year_ago = today - timedelta(days=365)
+            if parsed_date < one_year_ago:
+                print(f"Rejecting old ISO date {parsed_date} from '{date_str}' (more than 1 year old)")
                 return None
             return parsed_date
         except:

@@ -318,18 +318,38 @@ class JobService:
         career_page_indicators = [
             'careers |', 'careers page', 'all jobs', 'view all jobs',
             'jobs and more', 'engineering jobs and more', 'find jobs',
-            'search jobs', 'browse jobs', 'job search'
+            'search jobs', 'browse jobs', 'job search',
+            'careers at', 'careers in', 'career opportunities',  # "Careers at RBC"
+            'join our team', 'work with us', 'we are hiring', 'open positions'
         ]
-        if any(indicator in title for indicator in career_page_indicators):
+        if any(indicator in title.lower() for indicator in career_page_indicators):
+            return False
+        
+        # Reject if title starts with "Careers" (career pages, not jobs)
+        if title.lower().startswith('careers'):
             return False
         
         # Must have company OR job description
         if not company and not jd_text:
             return False
         
-        # Company name shouldn't be generic
-        if company and company.lower() in ['health care', 'healthcare', 'linkedin', 'indeed']:
-            if not jd_text or len(jd_text) < 200:  # Need substantial job description
+        # Company name shouldn't be generic or weird
+        generic_companies = [
+            'health care', 'healthcare', 'linkedin', 'indeed', 'glassdoor',
+            'professional', 'company', 'corporation', 'inc', 'llc',  # Too generic
+            'rbc',  # Just "RBC" without context is likely a career page
+        ]
+        if company:
+            company_lower = company.lower().strip()
+            # Reject generic company names
+            if company_lower in generic_companies:
+                if not jd_text or len(jd_text) < 200:  # Need substantial job description
+                    return False
+            # Reject company names with weird prefixes (like "z_Greendale")
+            if company_lower.startswith('z_') or company_lower.startswith('x_'):
+                return False
+            # Company name should be meaningful (more than 2 characters, less than 100)
+            if len(company_lower) < 3 or len(company_lower) > 100:
                 return False
         
         # Job description should contain job-related keywords
@@ -350,11 +370,16 @@ class JobService:
         # Check for future dates (likely parsing errors) - reject ALL future dates
         date_posted = job_data.get("date_posted")
         if date_posted:
-            from datetime import date
+            from datetime import date, timedelta
             today = date.today()
             if date_posted > today:
                 # Future date is definitely a parsing error - reject it
                 print(f"Rejecting job with future date: {date_posted} (today: {today})")
+                return False
+            # Also reject dates too far in the past (more than 1 year old)
+            one_year_ago = today - timedelta(days=365)
+            if date_posted < one_year_ago:
+                print(f"Rejecting job with old date: {date_posted} (more than 1 year old)")
                 return False
         
         return True
