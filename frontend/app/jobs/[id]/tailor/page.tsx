@@ -8,12 +8,13 @@ export default function TailorPage() {
   const params = useParams();
   const router = useRouter();
   const jobId = params.id as string;
-  const [loading, setLoading] = useState(false);
+  const [tailorLoading, setTailorLoading] = useState(false);
+  const [workflowLoading, setWorkflowLoading] = useState(false);
   const [assets, setAssets] = useState<any>(null);
   const [error, setError] = useState('');
 
   const handleTailor = async () => {
-    setLoading(true);
+    setTailorLoading(true);
     setError('');
     
     const userId = localStorage.getItem('userId');
@@ -32,7 +33,7 @@ export default function TailorPage() {
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to tailor resume');
     } finally {
-      setLoading(false);
+      setTailorLoading(false);
     }
   };
 
@@ -55,7 +56,7 @@ export default function TailorPage() {
   };
 
   const handleCompleteWorkflow = async () => {
-    setLoading(true);
+    setWorkflowLoading(true);
     setError('');
     
     const userId = localStorage.getItem('userId');
@@ -81,7 +82,7 @@ export default function TailorPage() {
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to run complete workflow');
     } finally {
-      setLoading(false);
+      setWorkflowLoading(false);
     }
   };
 
@@ -120,10 +121,10 @@ export default function TailorPage() {
             <div className="space-y-4">
               <button
                 onClick={handleTailor}
-                disabled={loading}
+                disabled={tailorLoading || workflowLoading}
                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 font-semibold text-lg transition-all shadow-lg hover:shadow-xl"
               >
-                {loading ? (
+                {tailorLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="animate-spin">⚙️</span>
                     AI is analyzing and tailoring your resume...
@@ -135,10 +136,10 @@ export default function TailorPage() {
               
               <button
                 onClick={handleCompleteWorkflow}
-                disabled={loading}
+                disabled={tailorLoading || workflowLoading}
                 className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-4 rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 font-semibold text-lg transition-all shadow-lg hover:shadow-xl"
               >
-                {loading ? (
+                {workflowLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="animate-spin">⚙️</span>
                     Running complete workflow...
