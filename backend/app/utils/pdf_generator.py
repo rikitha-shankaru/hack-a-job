@@ -101,8 +101,39 @@ class PDFGenerator:
         if resume_json.get("education"):
             story.append(Paragraph("<b>Education</b>", self.heading_style))
             for edu in resume_json["education"]:
-                edu_text = json.dumps(edu) if isinstance(edu, dict) else str(edu)
-                story.append(Paragraph(edu_text, self.body_style))
+                if isinstance(edu, dict):
+                    degree = edu.get("degree", "")
+                    school = edu.get("school", "")
+                    major = edu.get("major", "")
+                    start = edu.get("start", "")
+                    end = edu.get("end", "")
+                    gpa = edu.get("gpa", "")
+                    
+                    # Build education line: "Degree in Major - School (Start - End) | GPA: X.XX"
+                    edu_parts = []
+                    if degree:
+                        if major:
+                            edu_parts.append(f"{degree} in {major}")
+                        else:
+                            edu_parts.append(degree)
+                    if school:
+                        edu_parts.append(school)
+                    
+                    date_range = ""
+                    if start and end:
+                        date_range = f"({start} - {end})"
+                    elif start:
+                        date_range = f"({start})"
+                    
+                    edu_line = " - ".join(edu_parts)
+                    if date_range:
+                        edu_line += f" {date_range}"
+                    if gpa:
+                        edu_line += f" | GPA: {gpa}"
+                    
+                    story.append(Paragraph(edu_line, self.body_style))
+                else:
+                    story.append(Paragraph(str(edu), self.body_style))
                 story.append(Spacer(1, 0.1*inch))
         
         doc.build(story)
