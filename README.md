@@ -19,7 +19,7 @@
 - **Frontend**: Next.js 14, React, Tailwind CSS
 - **Backend**: FastAPI (Python)
 - **Workflow**: LangGraph for orchestration
-- **AI**: Google Gemini API (Gemini Pro)
+- **AI**: Google Gemini API (Gemini 2.0 Flash)
 - **Database**: PostgreSQL with pgvector
 - **Search**: Google Custom Search JSON API
 - **Formatting**: LaTeX/Overleaf for resume preservation
