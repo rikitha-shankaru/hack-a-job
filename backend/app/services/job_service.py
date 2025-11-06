@@ -20,18 +20,8 @@ class JobService:
         db: Session
     ) -> List[Job]:
         """Search jobs using Google Custom Search API and store them"""
-        # Build search query similar to Google's natural search
-        # Focus on actual job postings, not career pages
-        search_query = f'{query} jobs'
-        if location:
-            search_query += f' in {location}'
-        
-        # Add site restrictions to focus on job boards (but don't force OR which can cause issues)
-        # Use site: operator for better results
-        site_restrictions = 'site:linkedin.com/jobs OR site:indeed.com OR site:glassdoor.com OR site:greenhouse.io OR site:lever.co OR site:monster.com OR site:ziprecruiter.com'
-        
-        # Combine query with site restrictions
-        search_query = f"{search_query} ({site_restrictions})"
+        # Build multiple search queries for better coverage
+        # Google CSE works better with simpler queries, so we'll search multiple times
         
         # Map recency to Google CSE dateRestrict format
         date_mapping = {
@@ -41,13 +31,52 @@ class JobService:
         }
         date_restrict = date_mapping.get(recency, "w2")
         
-        # Search Google CSE (paginate 3-4 pages to get more results)
+        # Strategy 1: Natural query (like Google's native search)
+        base_query = f'{query}'
+        if location:
+            base_query += f' {location}'
+        base_query += ' job'
+        
+        # Strategy 2: Search with job-specific keywords
+        job_keywords_query = f'{query} "hiring" "apply"'
+        if location:
+            job_keywords_query += f' {location}'
+        
+        # Strategy 3: Search specific job boards (one at a time for better results)
+        job_board_queries = []
+        job_boards = [
+            ('linkedin.com/jobs', f'{query} site:linkedin.com/jobs'),
+            ('indeed.com', f'{query} site:indeed.com'),
+            ('glassdoor.com', f'{query} site:glassdoor.com'),
+            ('greenhouse.io', f'{query} site:greenhouse.io'),
+            ('lever.co', f'{query} site:lever.co'),
+        ]
+        
+        if location:
+            for board_name, board_query in job_boards:
+                job_board_queries.append((board_name, f'{board_query} {location}'))
+        else:
+            job_board_queries = job_boards
+        
+        # Search all strategies and combine results
         all_items = []
-        for start in [1, 11, 21, 31]:
-            items = await self._search_cse(search_query, date_restrict, start)
-            if not items:  # Stop if no more results
-                break
+        
+        # Search 1: Natural query (2 pages)
+        for start in [1, 11]:
+            items = await self._search_cse(base_query, date_restrict, start)
+            if items:
+                all_items.extend(items)
+        
+        # Search 2: Job keywords query (1 page)
+        items = await self._search_cse(job_keywords_query, date_restrict, 1)
+        if items:
             all_items.extend(items)
+        
+        # Search 3: Individual job boards (1 page each)
+        for board_name, board_query in job_board_queries[:3]:  # Limit to top 3 boards
+            items = await self._search_cse(board_query, date_restrict, 1)
+            if items:
+                all_items.extend(items)
         
         # Deduplicate by URL
         seen_urls = set()
