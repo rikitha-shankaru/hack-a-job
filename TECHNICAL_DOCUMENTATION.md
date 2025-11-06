@@ -1,17 +1,12 @@
-# Hack-A-Job: Complete Technical Documentation
+# Hack-A-Job Technical Documentation
 
-## 🏗️ Architecture Overview
+## Overview
 
-Hack-A-Job is a full-stack AI-powered job application assistant built with:
-- **Backend**: FastAPI (Python) with PostgreSQL + pgvector
-- **Frontend**: Next.js 14 + React + TypeScript + Tailwind CSS
-- **AI**: Google Gemini API for LLM tasks
-- **Automation**: Playwright for browser automation
-- **Workflow**: LangGraph for orchestration
+Hack-A-Job is a full-stack web application that helps job seekers find relevant positions and automatically tailor their resumes and cover letters. The system uses AI to parse resumes, search for jobs, customize application materials, and can even pre-fill job application forms.
 
----
+The tech stack is pretty straightforward: FastAPI for the backend, Next.js 14 for the frontend, PostgreSQL for data storage, and Google Gemini API (with OpenAI as a fallback) for all the AI work. We also use Playwright for browser automation when filling out applications.
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Hack-A-Job/
@@ -39,8 +34,10 @@ Hack-A-Job/
 │   │   │       └── lever_adapter.py
 │   │   ├── utils/          # Utility modules
 │   │   │   ├── gemini_client.py    # Google Gemini API client
+│   │   │   ├── openai_client.py    # OpenAI API client
 │   │   │   ├── job_parser.py       # Job posting parser (JSON-LD/HTML)
 │   │   │   ├── pdf_parser.py        # PDF resume parser
+│   │   │   ├── pdf_to_latex.py      # PDF to LaTeX converter
 │   │   │   ├── latex_generator.py  # LaTeX resume generator
 │   │   │   ├── latex_compiler.py    # LaTeX to PDF compiler
 │   │   │   └── pdf_generator.py     # ReportLab PDF generator (fallback)
@@ -50,960 +47,198 @@ Hack-A-Job/
 │
 └── frontend/                # Next.js frontend
     ├── app/                # Next.js App Router
-    │   ├── page.tsx        # Landing page (collects target role, location, recency)
-    │   ├── upload/         # Resume upload page (drag-and-drop, file upload, paste)
-    │   ├── jobs/           # Job search & listing pages (auto-searches after upload)
+    │   ├── layout.tsx      # Root layout with metadata
+    │   ├── globals.css     # Global styles
+    │   ├── page.tsx        # Landing page (collects job info + resume)
+    │   ├── jobs/           # Job search & listing pages
+    │   │   ├── page.tsx    # Jobs listing with inline tailoring
     │   │   └── [id]/
-    │   │       └── tailor/  # Resume tailoring page (with apply options)
+    │   │       └── tailor/  # Resume tailoring page (legacy)
     │   ├── autofill/       # Autofill verification page
     │   └── verify/         # Application verification page
-    └── lib/
-        └── api.ts          # API client utilities
+    ├── components/         # Reusable React components
+    │   └── SkeletonLoader.tsx  # Loading skeletons
+    ├── lib/
+    │   └── api.ts          # API client utilities
+    └── next.config.js      # Next.js configuration
 ```
 
----
-
-## 🔧 Technology Stack Details
-
-### Backend Stack
-
-#### 1. **FastAPI** (v0.104.1)
-- **Purpose**: Modern, fast Python web framework
-- **Features Used**:
-  - Async/await support for concurrent operations
-  - Automatic API documentation (OpenAPI/Swagger)
-  - Dependency injection for database sessions
-  - CORS middleware for frontend communication
-  - Static file serving for PDFs
-
-#### 2. **PostgreSQL + pgvector**
-- **Database**: PostgreSQL with pgvector extension
-- **Purpose**: Store structured data + vector embeddings
-- **Key Features**:
-  - `JSONB` columns for flexible schema (resume JSON, job descriptions)
-  - `Vector(1536)` for resume embeddings (semantic search)
-  - Foreign keys with cascade deletes
-  - UUID primary keys
-
-#### 3. **SQLAlchemy** (v2.0.23)
-- **ORM**: Object-Relational Mapping
-- **Features**:
-  - Declarative models
-  - Relationship management (one-to-one, one-to-many)
-  - Session management with dependency injection
-  - Database migrations via Alembic
-
-#### 4. **Google Gemini API** (v0.3.2)
-- **Model**: `gemini-2.0-flash`
-- **Uses**:
-  - Resume parsing (text → structured JSON)
-  - Resume tailoring (match job descriptions)
-  - Cover letter generation
-  - Application question answering
-  - AI explanations & recommendations
-  - Job match scoring
-
-#### 5. **LangGraph** (v0.0.26)
-- **Purpose**: Workflow orchestration
-- **Workflow**: Collect Info → Upload → Auto-Search → Tailor → Cover Letter → Autofill → Email
-- **State Management**: TypedDict for type-safe state
-
-#### 6. **Playwright** (v1.40.0)
-- **Purpose**: Browser automation for autofill
-- **Features**:
-  - Headless Chromium browser
-  - Form field detection & filling
-  - File uploads (resume/cover letter)
-  - Screenshot capture
-  - Question detection & AI answering
-
-#### 7. **BeautifulSoup4** (v4.12.2)
-- **Purpose**: HTML parsing for job postings
-- **Features**:
-  - Extract JSON-LD structured data
-  - Fallback HTML parsing
-  - Job description extraction
-
-#### 8. **pypdf** (v3.17.1)
-- **Purpose**: PDF resume parsing
-- **Features**:
-  - Extract text from PDFs
-  - Structure analysis (sections, bullets)
-
-#### 9. **LaTeX + pdflatex**
-- **Purpose**: Preserve resume formatting
-- **Flow**: PDF → Parse → LaTeX Template → Tailor → Compile → PDF
-
-### Frontend Stack
-
-#### 1. **Next.js 14** (App Router)
-- **Framework**: React framework with App Router
-- **Features**:
-  - Server-side rendering (SSR)
-  - File-based routing
-  - API route proxying (optional)
-
-#### 2. **React + TypeScript**
-- **UI Library**: React with TypeScript
-- **State Management**: React hooks (useState, useEffect)
-- **Type Safety**: TypeScript for type checking
-
-#### 3. **Tailwind CSS**
-- **Styling**: Utility-first CSS framework
-- **Features**: Responsive design, custom gradients
-
----
-
-## 🔄 Complete Data Flow
-
-### 0. **Landing Page - Collect Job Search Preferences & Resume**
-
-```
-User visits landing page
-    ↓
-Step 1: AI collects:
-  - Target job role (required)
-  - Location (optional)
-  - Job posting recency (d7/w2/m1)
-    ↓
-Step 2: On same page, collect resume:
-  - Upload PDF (drag-and-drop or file picker)
-  - Paste resume text
-  - OR skip - AI will generate resume
-    ↓
-Data stored in localStorage
-    ↓
-Automatically redirect to /jobs with auto-search
-```
-
-### 1. **Resume Upload & Parsing**
-
-```
-User uploads resume via:
-  - Drag-and-drop PDF
-  - File upload
-  - Paste resume text
-    ↓
-[Frontend] POST /api/profile/ingest (multipart/form-data)
-  - Includes: email, name, roleTarget (from landing page), levelTarget
-    ↓
-[Backend] profile.py → ProfileService.parse_resume()
-    ↓
-PDFParser.parse_pdf() → Extract text & structure (if PDF)
-    ↓
-GeminiClient.parse_resume() → Structured JSON
-    ↓
-Extract: skills, metrics, links, generate embedding
-    ↓
-Store in PostgreSQL:
-  - User (email, name, role_target, level_target)
-  - Profile (resume_json, resume_pdf_url, resume_latex_template, skills, metrics, links, resume_vector)
-    ↓
-[Frontend] Automatically triggers job search with stored preferences
-    ↓
-Redirect to /jobs?autoSearch=true&query=...&location=...&recency=...
-```
-
-**Key Files**:
-- `backend/app/api/profile.py`: API endpoint
-- `backend/app/services/profile_service.py`: Business logic
-- `backend/app/utils/pdf_parser.py`: PDF parsing
-- `backend/app/utils/gemini_client.py`: AI parsing
-
-**Technical Details**:
-- **PDF Parsing**: Uses `pypdf` to extract text, analyzes structure (sections, bullets)
-- **AI Parsing**: Gemini API with JSON schema enforcement (OpenAI as fallback)
-- **LaTeX Template**: Generated from PDF structure to preserve exact formatting (borders, spacing, fonts)
-- **Embedding**: 1536-dim vector for semantic search (currently hash-based fallback)
-- **Resume Generation**: If no resume provided, AI generates realistic resume based on job profile
-- **Field Preservation**: Name, email, phone, location, and links always preserved during tailoring
-
----
-
-### 2. **Job Search (Auto-Triggered)**
-
-```
-After resume upload OR manual search:
-    ↓
-[Frontend] POST /api/jobs/search
-  - Query: target role from landing page
-  - Location: from landing page (if provided)
-  - Recency: from landing page
-    ↓
-[Backend] jobs.py → Check cache first (5-minute TTL)
-  - If cached: Return immediately (instant response)
-  - If not cached: Continue to search
-    ↓
-JobService.search_and_store_jobs()
-    ↓
-Build Google CSE Query:
-  "software engineer jobs in california (site:linkedin.com/jobs OR site:indeed.com ...)"
-    ↓
-Google Custom Search API (paginated: 4 pages, 10 results/page)
-    ↓
-For each result:
-  - Filter non-job URLs (news, social media, .gov, .edu)
-  - Fetch HTML with httpx
-  - Pre-check for "no longer available" indicators
-    ↓
-JobParser.parse_job_posting():
-  - Try JSON-LD extraction (schema.org/JobPosting)
-  - Fallback to HTML parsing
-  - Extract: title, company, location, date_posted, jd_text, keywords
-    ↓
-Validate Job:
-  - Reject future dates
-  - Reject generic titles ("Jobs JOBS FOUND", "Powered by people")
-  - Reject career pages vs actual postings
-  - Require job keywords in description
-    ↓
-Deduplicate by URL + title+company
-    ↓
-Store in PostgreSQL: Job table
-    ↓
-Return JobResponse[] to frontend
-```
-
-**Key Files**:
-- `backend/app/api/jobs.py`: API endpoint
-- `backend/app/services/job_service.py`: Search logic & filtering
-- `backend/app/utils/job_parser.py`: HTML/JSON-LD parsing
-
-**Technical Details**:
-- **Google CSE**: Custom Search Engine with site restrictions
-- **Date Parsing**: Multiple format support, rejects future dates
-- **Filtering**: Multi-layer validation (URL, title, description, date)
-- **Deduplication**: By URL and title+company combination
-
----
-
-### 3. **Resume Tailoring**
-
-```
-User views job list → Clicks "Tailor" on a job
-    ↓
-[Frontend] Navigate to /jobs/[id]/tailor
-    ↓
-User clicks "Generate AI-Tailored Resume & Cover Letter"
-    ↓
-[Frontend] POST /api/tailor (userId, jobId)
-    ↓
-[Backend] tailor.py → TailorService.generate_tailored_assets()
-    ↓
-Get base resume from Profile.resume_json
-Get job description from Job.jd_text
-    ↓
-GeminiClient.tailor_resume():
-  - Input: base_resume_json, job_description, jd_keywords
-  - Prompt: "Intelligently rewrite resume, match job description, preserve facts"
-  - Output: Tailored resume JSON
-    ↓
-GeminiClient.generate_cover_letter():
-  - Input: tailored_resume, job_description, company
-  - Output: Cover letter JSON (opening, mapping bullets, closing)
-    ↓
-Generate Resume PDF:
-  - Get original LaTeX template (if available)
-  - LaTeXGenerator.generate_latex() → LaTeX content
-  - LaTeXCompiler.compile_latex_to_pdf() → PDF (pdflatex)
-  - Fallback: PDFGenerator (ReportLab) if LaTeX fails
-    ↓
-Generate Cover Letter PDF:
-  - PDFGenerator.generate_cover_letter_pdf() → PDF
-    ↓
-AI Insights:
-  - GeminiClient.generate_ai_explanation() → Why changes were made
-  - GeminiClient.generate_ai_recommendations() → Improvement suggestions
-  - GeminiClient.calculate_job_match_score() → Match score (0-100)
-    ↓
-Store in PostgreSQL:
-  - TailoredAsset (resume_json, resume_pdf_url, cover_json, cover_pdf_url, diffs)
-    ↓
-Return TailorResponse with PDF URLs
-```
-
-**Key Files**:
-- `backend/app/api/tailor.py`: API endpoint
-- `backend/app/services/tailor_service.py`: Tailoring orchestration
-- `backend/app/utils/gemini_client.py`: AI operations
-- `backend/app/utils/latex_generator.py`: LaTeX generation
-- `backend/app/utils/latex_compiler.py`: PDF compilation
-
-**Technical Details**:
-- **Resume Tailoring**: Gemini rewrites bullets, reorders sections, matches keywords
-- **Fact Preservation**: Validation ensures no invented companies/titles/dates
-- **LaTeX Preservation**: Maintains original formatting from uploaded PDF
-- **AI Insights**: Explanation, recommendations, match score in diffs
-
----
-
-### 4. **Apply Options (After Tailoring)**
-
-```
-After tailoring completes, user sees two options:
-
-Option A: Manual Application
-    ↓
-User downloads tailored resume and cover letter PDFs
-    ↓
-User clicks "View Job Posting" → Opens job URL in new tab
-    ↓
-User manually applies using downloaded documents
-
-Option B: AI Autofill Application
-    ↓
-User clicks "Start AI Autofill"
-    ↓
-[Frontend] POST /api/tailor/complete (userId, jobId)
-    ↓
-[Backend] tailor.py → JobApplicationWorkflow.run()
-    ↓
-LangGraph Workflow:
-  
-  Node 1: parse_resume
-    - Get parsed resume from Profile.resume_json
-    ↓
-  Node 2: search_jobs
-    - Skip (job already selected)
-    ↓
-  Node 3: tailor_resume
-    - TailorService.generate_tailored_assets()
-    - Store TailoredAsset
-    ↓
-  Node 4: generate_cover_letter
-    - Get cover letter from TailoredAsset.cover_json
-    ↓
-  Node 5: autofill_application
-    - AutofillService.run_autofill_with_questions()
-    - Detect portal (greenhouse/lever)
-    - Playwright: Fill form fields, upload files, answer questions with AI
-    - Store AutofillRun with verification_url
-    ↓
-  Node 6: send_verification_email
-    - EmailService.send_verification_email()
-    - SMTP: Send HTML email with verification link
-    ↓
-Return: { verification_url, autofill_run_id }
-```
-
-**Key Files**:
-- `backend/app/workflows/job_application_workflow.py`: LangGraph workflow
-- `backend/app/services/autofill_service.py`: Autofill orchestration
-- `backend/app/services/adapters/greenhouse_adapter.py`: Greenhouse-specific logic
-- `backend/app/services/adapters/lever_adapter.py`: Lever-specific logic
-
-**Technical Details**:
-- **LangGraph**: State-based workflow with TypedDict
-- **State**: user_id, job_id, parsed_resume, tailored_resume, cover_letter, autofill_run, verification_url
-- **Nodes**: Each node is an async function that modifies state
-
----
-
-### 5. **Autofill Application**
-
-```
-AutofillService.run_autofill_with_questions()
-    ↓
-Detect Portal: greenhouse.io or lever.co
-    ↓
-GreenhouseAdapter.autofill_with_questions():
-  - Launch Playwright (headless Chromium)
-  - Navigate to job URL
-  - Take screenshot (before)
-    ↓
-Fill Basic Fields:
-  - Name: User.name
-  - Email: User.email
-  - Phone: Extract from resume_json
-  - Links: GitHub, LinkedIn from resume_json
-    ↓
-Upload Files:
-  - Resume: TailoredAsset.resume_pdf_url
-  - Cover Letter: TailoredAsset.cover_pdf_url
-    ↓
-Detect Questions:
-  - Find textarea/input fields with question indicators
-  - Extract question text (label, placeholder, aria-label)
-    ↓
-Answer Questions with AI:
-  - GeminiClient.answer_application_question()
-  - Input: question, resume_json, job_description
-  - Output: Tailored answer
-  - Fill field with answer
-    ↓
-Take screenshot (after)
-    ↓
-Store AutofillRun:
-  - filled_fields: { field_name: value }
-  - confidence: { field_name: 0.0-1.0 }
-  - screenshots: [base64 encoded]
-  - verification_url: Link to prefilled form
-    ↓
-Return AutofillRun
-```
-
-**Key Files**:
-- `backend/app/services/autofill_service.py`: Portal detection & orchestration
-- `backend/app/services/adapters/greenhouse_adapter.py`: Greenhouse form filling
-- `backend/app/services/adapters/lever_adapter.py`: Lever form filling
-- `backend/app/utils/gemini_client.py`: Question answering
-
-**Technical Details**:
-- **Playwright**: Headless browser automation
-- **Field Detection**: CSS selectors, ARIA labels, placeholders
-- **AI Question Answering**: Gemini generates context-aware answers
-- **Confidence Scoring**: Per-field confidence (0.0-1.0)
-- **Verification URL**: Link to prefilled form for user review
-
----
-
-### 6. **Email Sending**
-
-```
-EmailService.send_verification_email()
-    ↓
-Build HTML Email:
-  - Subject: "Verify Your Application - {job.title}"
-  - Body: HTML with verification link, job details, instructions
-    ↓
-SMTP Connection:
-  - Host: smtp.gmail.com:587
-  - Auth: smtp_user, smtp_pass
-  - TLS: starttls()
-    ↓
-Send Email:
-  - From: from_email
-  - To: user.email
-  - Attach: HTML body
-    ↓
-Return verification_url
-```
-
-**Key Files**:
-- `backend/app/services/email_service.py`: SMTP email sending
-
-**Technical Details**:
-- **SMTP**: Gmail SMTP server
-- **HTML Email**: Formatted with inline CSS
-- **Verification Link**: Points to prefilled application form
-
----
-
-## 🗄️ Database Schema
-
-### Tables
-
-#### 1. **users**
-```sql
-- id: UUID (PK)
-- email: String (unique)
-- name: String
-- role_target: String (e.g., "Software Engineer")
-- level_target: String (e.g., "Senior")
-- created_at: DateTime
-```
-
-#### 2. **profiles**
-```sql
-- user_id: UUID (PK, FK → users.id)
-- resume_json: JSONB (structured resume data)
-- resume_pdf_url: String (path to uploaded PDF)
-- resume_latex_template: Text (LaTeX template)
-- skills: JSONB (array of skills)
-- metrics: JSONB (quantitative achievements)
-- links: JSONB (GitHub, LinkedIn, etc.)
-- resume_vector: Vector(1536) (embedding)
-```
-
-#### 3. **jobs**
-```sql
-- id: UUID (PK)
-- company: String
-- title: String
-- location: String
-- region: String
-- remote: Boolean
-- date_posted: Date
-- valid_through: Date
-- salary: JSONB
-- url: String (unique)
-- source: String (greenhouse/lever/linkedin/etc.)
-- jd_text: Text (job description)
-- jd_keywords: JSONB (extracted keywords)
-- created_at: DateTime
-```
-
-#### 4. **tailored_assets**
-```sql
-- id: UUID (PK)
-- user_id: UUID (FK → users.id)
-- job_id: UUID (FK → jobs.id)
-- resume_json: JSONB (tailored resume)
-- resume_pdf_url: String
-- cover_json: JSONB (cover letter)
-- cover_pdf_url: String
-- status: String ('draft' | 'emailed')
-- created_at: DateTime
-```
-
-#### 5. **autofill_runs**
-```sql
-- id: UUID (PK)
-- user_id: UUID (FK → users.id)
-- job_id: UUID (FK → jobs.id)
-- portal: String (greenhouse/lever/other)
-- status: String ('prefilled' | 'needs_input' | 'submitted' | 'error')
-- filled_fields: JSONB (field_name → value)
-- confidence: JSONB (field_name → 0.0-1.0)
-- screenshots: JSONB (array of base64 images)
-- verification_url: String
-- created_at: DateTime
-```
-
----
-
-## 🔐 API Endpoints
-
-### Profile Endpoints
-
-#### `POST /api/profile/ingest`
-- **Purpose**: Upload and parse resume
-- **Request**: `multipart/form-data`
-  - `email`: String (required)
-  - `name`: String (optional)
-  - `roleTarget`: String (optional)
-  - `levelTarget`: String (optional)
-  - `resumeFile`: File (PDF, optional)
-  - `resumeText`: String (optional)
-- **Response**: `ProfileIngestResponse`
-  - `userId`: UUID
-  - `parsed`: { skills, metrics, links }
-  - `resumeJson`: Object
-  - `resumeVector`: Array[float]
-
-### Job Endpoints
-
-#### `POST /api/jobs/search`
-- **Purpose**: Search for jobs
-- **Request**: `JobSearchRequest`
-  - `query`: String (required)
-  - `location`: String (optional)
-  - `recency`: String ('d7' | 'w2' | 'm1')
-  - `roleTarget`: String (optional)
-  - `levelTarget`: String (optional)
-- **Response**: `JobSearchResponse`
-  - `jobs`: Array[JobResponse]
-
-### Tailor Endpoints
-
-#### `POST /api/tailor`
-- **Purpose**: Generate tailored resume and cover letter
-- **Request**: `TailorRequest`
-  - `userId`: UUID
-  - `jobId`: UUID
-- **Response**: `TailorResponse`
-  - `assetsId`: UUID
-  - `resumePdfUrl`: String
-  - `coverPdfUrl`: String
-  - `diffs`: Object (changes, AI insights)
-
-#### `POST /api/tailor/complete`
-- **Purpose**: Run complete workflow (tailor + autofill + email)
-- **Request**: `TailorRequest`
-- **Response**: `{ status, verification_url, autofill_run_id }`
-
-### Autofill Endpoints
-
-#### `POST /api/autofill/run`
-- **Purpose**: Pre-fill job application form
-- **Request**: `AutofillRunRequest`
-  - `userId`: UUID
-  - `jobId`: UUID
-- **Response**: `AutofillRunResponse`
-  - `runId`: UUID
-  - `status`: String
-  - `screenshots`: Array[String] (base64)
-  - `confidence`: Object
-  - `verification_url`: String
-
-#### `POST /api/autofill/approve`
-- **Purpose**: Approve/submit autofilled form
-- **Request**: `AutofillApproveRequest`
-  - `runId`: UUID
-  - `submit`: Boolean
-- **Response**: `AutofillApproveResponse`
-  - `status`: String
-
-### Email Endpoints
-
-#### `POST /api/email/send`
-- **Purpose**: Send tailored assets via email
-- **Request**: `EmailSendRequest`
-  - `userId`: UUID
-  - `jobId`: UUID
-  - `assetsId`: UUID
-- **Response**: `EmailSendResponse`
-  - `status`: String
-
----
-
-## 🤖 AI Integration Details
-
-### Google Gemini API Usage
-
-#### 1. **Resume Parsing**
-```python
-prompt = f"Parse this resume text into structured JSON..."
-response = gemini.generate_content(prompt)
-# Returns: { summary, skills, experience, projects, education }
-```
-
-#### 2. **Resume Tailoring**
-```python
-prompt = f"""
-You are an expert AI resume writer...
-Base Resume: {base_resume_json}
-Job Description: {job_description}
-Output ONLY valid JSON with same structure...
-"""
-# Returns: Tailored resume JSON (rephrased, reordered, keyword-matched)
-```
-
-#### 3. **Cover Letter Generation**
-```python
-prompt = f"""
-Write a concise cover letter...
-Resume: {resume_json}
-Company: {company}
-Job Description: {job_description}
-"""
-# Returns: { opening, mapping: [bullets], closing }
-```
-
-#### 4. **Question Answering**
-```python
-prompt = f"""
-Answer this job application question truthfully...
-Question: {question}
-Resume: {resume_json}
-Job Description: {job_description}
-"""
-# Returns: Tailored answer string
-```
-
-#### 5. **AI Insights**
-- **Explanation**: Why changes were made
-- **Recommendations**: Improvement suggestions
-- **Match Score**: 0-100 score with breakdown (skills, experience, keywords)
-
-### Rate Limiting & Retry Logic
-
-```python
-async def _generate_with_retry(self, prompt: str, max_retries: int = 3):
-    for attempt in range(max_retries):
-        try:
-            response = self.model.generate_content(prompt)
-            return response
-        except Exception as e:
-            if "429" in str(e) or "Resource exhausted" in str(e):
-                wait_time = (2 ** attempt) * 2  # Exponential backoff
-                await asyncio.sleep(wait_time)
-                continue
-            raise
-```
-
----
-
-## 🎨 Frontend Architecture
-
-### Next.js App Router Structure
-
-```
-app/
-├── layout.tsx          # Root layout (providers, metadata)
-├── page.tsx            # Home page
-├── upload/
-│   └── page.tsx        # Resume upload form
-├── jobs/
-│   ├── page.tsx         # Job search & listing
-│   └── [id]/
-│       └── tailor/
-│           └── page.tsx  # Resume tailoring page
-├── autofill/
-│   └── [id]/
-│       └── page.tsx     # Autofill verification
-└── verify/
-    └── [id]/
-        └── page.tsx     # Application verification
-```
-
-### API Client (`lib/api.ts`)
-
-```typescript
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
-  headers: { 'Content-Type': 'application/json' }
-});
-```
-
-### State Management
-
-- **Local State**: React `useState` for form data
-- **API Calls**: Axios with async/await
-- **Error Handling**: Try/catch with user-friendly messages
-- **Loading States**: Loading indicators during API calls
-
----
-
-## 🔄 Request/Response Flow Example
-
-### Complete User Journey
-
-```
-1. User visits landing page (/)
-   → GET / (Next.js renders page.tsx)
-   → User enters: target role, location (optional), job posting recency
-   → Data stored in localStorage
-   → Redirect to /upload
-
-2. User uploads resume (/upload)
-   → Drag-and-drop, file upload, or paste resume text
-   → POST /api/profile/ingest (multipart/form-data)
-   → Backend: Parse PDF → Gemini → Store in DB
-   → Response: { userId, parsed, resumeJson }
-   → Frontend: Store userId in localStorage
-   → Automatically triggers job search with stored preferences
-   → Redirect to /jobs?autoSearch=true&query=...&location=...&recency=...
-
-3. Jobs auto-search (/jobs)
-   → GET /jobs?autoSearch=true&query=...&location=...&recency=...
-   → Frontend: Auto-triggers POST /api/jobs/search
-   → Backend: Google CSE search → Parse → Filter → Store
-   → Response: { jobs: [...] }
-   → Frontend: Display job list
-   → User clicks "Tailor" on a job → Navigate to /jobs/[id]/tailor
-
-4. User tailors resume (/jobs/[id]/tailor)
-   → User clicks "Generate AI-Tailored Resume & Cover Letter"
-   → POST /api/tailor { userId, jobId }
-   → Backend: Gemini tailoring → LaTeX → PDF → Store
-   → Response: { assetsId, originalResumePdfUrl, resumePdfUrl, coverPdfUrl, diffs }
-   → Frontend: Display preview tabs (original, tailored, cover letter)
-   → Frontend: Show AI insights (match score, explanations, recommendations)
-
-5. User chooses apply option:
-   
-   Option A: Manual Application
-   → User downloads tailored resume and cover letter PDFs
-   → User clicks "View Job Posting" → Opens job URL in new tab
-   → User manually applies using downloaded documents
-   
-   Option B: AI Autofill Application
-   → User clicks "Start AI Autofill"
-   → POST /api/tailor/complete { userId, jobId }
-   → Backend: LangGraph workflow
-     - Tailor resume (if not already done)
-     - Generate cover letter (if not already done)
-     - Autofill application (Playwright + Gemini)
-     - Send verification email
-   → Response: { verification_url }
-   → Frontend: Redirect to verification page
-
-6. User receives email (if autofill chosen)
-   → Email contains verification link
-   → User clicks link → Opens prefilled application form
-   → User reviews → Submits application
-```
-
----
-
-## 🛠️ Key Technical Decisions
-
-### 1. **Why FastAPI?**
-- Async/await for concurrent operations (job parsing, API calls)
-- Automatic OpenAPI documentation
-- Type validation with Pydantic
-- High performance (comparable to Node.js)
-
-### 2. **Why PostgreSQL + pgvector?**
-- Structured data (users, jobs, assets)
-- JSONB for flexible schema (resume JSON, job descriptions)
-- Vector embeddings for semantic search (future enhancement)
-- ACID compliance for data integrity
-
-### 3. **Why Google Gemini?**
-- User preference (wins prize!)
-- Fast inference with `gemini-2.0-flash`
-- Good JSON schema support
-- Competitive pricing
-- **Dual AI Strategy**: OpenAI (GPT-4o-mini) as primary, Gemini as fallback for best quality
-
-### 4. **Why LangGraph?**
-- Complex multi-step workflows
-- State management across steps
-- Easy to add/remove steps
-- Type-safe state with TypedDict
-
-### 5. **Why Playwright?**
-- Modern browser automation
-- Better than Selenium (faster, more reliable)
-- Headless mode for server deployment
-- Screenshot capture for verification
-
-### 6. **Why LaTeX for Resumes?**
-- Preserves original formatting
-- Professional PDF output
-- ATS-friendly (text-based)
-- Template-based customization
-
----
-
-## 🔒 Security Considerations
-
-1. **API Keys**: Stored in `.env` file (not committed)
-2. **CORS**: Restricted to localhost:3000, localhost:3001
-3. **File Uploads**: Validated file types (PDF only)
-4. **SQL Injection**: SQLAlchemy ORM prevents SQL injection
-5. **XSS**: React escapes user input automatically
-6. **Rate Limiting**: Exponential backoff for Gemini API and Google CSE API
-7. **Security Headers**: X-Frame-Options, X-Content-Type-Options, Referrer-Policy
-8. **Personal Data Protection**: PDF files excluded from Git (.gitignore)
-9. **Input Validation**: Pydantic schemas validate all API inputs
-10. **Error Handling**: Sensitive error details not exposed to frontend
-
----
-
-## 🚀 Deployment Considerations
+## Technology Stack
 
 ### Backend
-- **Server**: Uvicorn ASGI server
-- **Database**: PostgreSQL with pgvector extension
-- **Environment Variables**: `.env` file
-- **Static Files**: `/uploads` directory (should use S3 in production)
+
+**FastAPI** - We chose FastAPI because it's fast, has great async support, and automatically generates API docs. The async/await pattern is crucial for handling multiple job searches and API calls concurrently.
+
+**PostgreSQL + pgvector** - PostgreSQL stores all our structured data. We use JSONB columns for flexible schemas (like resume JSON and job descriptions) and pgvector for future semantic search capabilities. Right now we're using hash-based embeddings as a fallback.
+
+**SQLAlchemy** - Handles all database operations. We use connection pooling (10 base connections, 20 overflow) to handle concurrent requests efficiently. Eager loading prevents N+1 query problems.
+
+**Google Gemini API** - Primary AI service for parsing resumes, tailoring content, and generating cover letters. We use the `gemini-2.0-flash` model for speed and cost efficiency.
+
+**OpenAI API** - Used as a fallback when Gemini fails or isn't configured. We prefer OpenAI for resume tailoring because it tends to produce better quality output, but Gemini is our primary choice for the competition.
+
+**LangGraph** - Orchestrates the complete workflow from resume parsing to application submission. It manages state across multiple steps and makes it easy to add or remove workflow nodes.
+
+**Playwright** - Handles browser automation for pre-filling job applications. It's faster and more reliable than Selenium, and works great in headless mode.
+
+**BeautifulSoup4** - Parses HTML from job postings. We prefer JSON-LD structured data when available, but fall back to HTML parsing when needed.
+
+**pypdf** - Extracts text and structure from PDF resumes. We analyze sections, bullets, and formatting to preserve the original layout.
+
+**LaTeX + pdflatex** - When a user uploads a PDF resume, we convert it to LaTeX to preserve the exact formatting. Then when tailoring, we only replace the content while keeping all the original styling, borders, and spacing.
 
 ### Frontend
-- **Build**: `next build`
-- **Server**: `next start` or Vercel/Netlify
-- **Environment**: `NEXT_PUBLIC_API_URL` for API endpoint
 
-### Required Services
-- PostgreSQL database
+**Next.js 14** - React framework with App Router. We use it for server-side rendering, file-based routing, and built-in optimizations like image compression and code splitting.
+
+**React + TypeScript** - TypeScript gives us type safety, and React hooks handle all state management. We use memoization (useMemo, useCallback) to prevent unnecessary re-renders.
+
+**Tailwind CSS** - Utility-first CSS framework. Makes it easy to build responsive, modern UIs without writing custom CSS.
+
+## How It Works
+
+### Landing Page and Resume Upload
+
+The user starts on the landing page where they enter their target job role, location (optional), and how recent they want job postings to be. On the same page, they can upload a PDF resume, paste resume text, or skip and let the AI generate a resume for them.
+
+When a resume is uploaded, we parse it using pypdf to extract text and structure. If it's a PDF, we also convert it to a LaTeX template so we can preserve the exact formatting later. Then we send the text to Gemini (or OpenAI) to extract structured data like skills, experience, education, etc.
+
+If the user doesn't provide a resume, we use AI to generate a realistic one based on their target role and level. This is useful for testing or when someone wants to see what a resume for a particular role might look like.
+
+All this data gets stored in PostgreSQL - the user info, the parsed resume JSON, the LaTeX template (if available), and extracted skills/metrics/links.
+
+### Job Search
+
+After the resume is processed, the app automatically searches for jobs. The search uses Google Custom Search API with site restrictions to major job boards like LinkedIn, Indeed, Glassdoor, etc.
+
+We build multiple search queries - a natural language query, keyword-based queries, and individual site-restricted queries for each job board. This mimics how Google's native job search works and gives us better results.
+
+For each search result, we:
+1. Filter out non-job URLs (news sites, social media, etc.)
+2. Fetch the HTML page
+3. Try to extract structured data from JSON-LD first
+4. Fall back to HTML parsing if JSON-LD isn't available
+5. Extract title, company, location, posting date, job description, and keywords
+6. Validate the job (reject future dates, generic titles, etc.)
+7. Deduplicate by URL and title+company combination
+
+We cache search results for 5 minutes to avoid hitting the API too frequently. The frontend also stores results in localStorage so they persist when navigating between pages.
+
+### Resume Tailoring
+
+When a user clicks "Tailor" on a job listing, we take their original resume and the job description and use AI to customize it. The key here is that we preserve 95%+ of the original content - we're not rewriting everything, just making strategic edits.
+
+The AI:
+- Reorders sections to match job priorities
+- Adds relevant keywords from the job description
+- Adjusts bullet points to highlight matching experience
+- Keeps all original facts (companies, titles, dates, metrics)
+- Preserves the user's writing style and voice
+
+We also check if the job description mentions a cover letter requirement. If it does, we generate one automatically.
+
+For PDF generation, we use the LaTeX template from the original resume. We inject the tailored content into the template, preserving all formatting, borders, spacing, and fonts. If LaTeX generation fails, we fall back to ReportLab.
+
+The tailored resume and cover letter are stored in the database, and we return URLs so the user can preview and download them.
+
+### Application Options
+
+After tailoring, users have two options:
+
+**Manual Application** - They download the tailored resume and cover letter PDFs and apply manually through the job board.
+
+**AI Autofill** - The system uses Playwright to navigate to the application form, detect the portal type (Greenhouse, Lever, etc.), fill in basic fields (name, email, phone, links), upload the resume and cover letter, and answer any application questions using AI.
+
+For questions, we use Gemini to generate context-aware answers based on the user's resume and the job description. The answers are truthful and tailored, not generic.
+
+After autofilling, we send the user an email with a verification link. They can review the prefilled form and submit it themselves. This approach respects the "pre-fill then user submits" requirement.
+
+## Database Schema
+
+**users** - Stores basic user info: email, name, target role, target level, creation timestamp.
+
+**profiles** - One-to-one with users. Stores the parsed resume JSON, original PDF URL, LaTeX template, extracted skills/metrics/links, and resume embedding vector.
+
+**jobs** - Stores job postings: company, title, location, posting date, URL, job description, extracted keywords, source (LinkedIn, Indeed, etc.).
+
+**tailored_assets** - Stores tailored resumes and cover letters for specific jobs. Links user and job, stores the tailored resume JSON, PDF URLs, cover letter JSON, PDF URL, and any AI insights/diffs.
+
+**autofill_runs** - Tracks autofill attempts. Stores which portal was used, what fields were filled, confidence scores, screenshots, and the verification URL.
+
+## API Endpoints
+
+**POST /api/profile/ingest** - Upload and parse a resume. Accepts multipart form data with email, name, role target, level target, and either a PDF file or resume text.
+
+**POST /api/jobs/search** - Search for jobs. Takes query, location, and recency parameters. Returns up to 100 jobs. Results are cached for 5 minutes.
+
+**POST /api/tailor** - Generate tailored resume and cover letter for a specific job. Takes userId and jobId, returns PDF URLs and any AI insights.
+
+**POST /api/tailor/complete** - Run the complete workflow: tailor resume, generate cover letter, autofill application, and send verification email. Uses LangGraph to orchestrate all steps.
+
+**POST /api/autofill/run** - Pre-fill a job application form. Detects the portal type, fills fields, uploads files, answers questions. Returns screenshots and verification URL.
+
+**POST /api/email/send** - Send tailored assets via email. Used for verification emails with prefilled application links.
+
+## Performance Optimizations
+
+We've implemented several optimizations to make the app fast and responsive:
+
+**Frontend:**
+- Next.js compression and image optimization
+- React memoization to prevent unnecessary re-renders
+- Skeleton loaders for better perceived performance
+- localStorage caching for instant page loads when navigating back
+
+**Backend:**
+- GZip compression reduces response sizes by 70-90%
+- Database connection pooling (10 base + 20 overflow connections)
+- Eager loading prevents N+1 queries
+- API response caching (5-minute TTL for job searches)
+- Query optimization with joinedload for related data
+
+**Expected improvements:**
+- Page load time: 40-60% faster
+- Database queries: 50-70% reduction
+- API response size: 70-90% smaller
+- React re-renders: 60-80% reduction
+
+## Security
+
+API keys are stored in environment variables, never committed to git. CORS is restricted to localhost for development. File uploads are validated (PDF only). SQLAlchemy ORM prevents SQL injection. React automatically escapes user input to prevent XSS. We use exponential backoff for API rate limiting. Security headers are set in Next.js config. Personal PDFs are excluded from git via .gitignore. All API inputs are validated with Pydantic schemas. Error messages don't expose sensitive details.
+
+## Deployment
+
+**Backend:** Runs on Uvicorn ASGI server. Requires PostgreSQL with pgvector extension. Environment variables in .env file. Static files in /uploads directory (should use S3 in production). Connection pooling is configured. GZip compression is enabled.
+
+**Frontend:** Build with `next build`, run with `next start` or deploy to Vercel/Netlify. Set NEXT_PUBLIC_API_URL environment variable. Static assets are cached for 1 year.
+
+**Required Services:**
+- PostgreSQL database (with connection pooling)
 - Google Custom Search Engine (CSE)
 - Google Gemini API key
+- OpenAI API key (optional, for better quality)
 - SMTP server (Gmail)
 
----
+For production, consider using Redis for distributed caching instead of in-memory cache, adding database indexes on frequently queried columns, and using a CDN for static assets.
 
-## 📊 Performance Optimizations
+## Error Handling
 
-### Frontend Optimizations
+API errors return proper HTTP status codes with descriptive messages. Validation errors use Pydantic to provide specific field-level feedback. Database errors are caught and converted to user-friendly messages. AI errors use exponential backoff retry logic. File operations are wrapped in try/except blocks. Frontend errors show user-friendly messages instead of technical details.
 
-1. **Next.js Configuration** (`next.config.js`):
-   - ✅ **Compression**: Automatic GZip compression enabled
-   - ✅ **Image Optimization**: AVIF and WebP formats, responsive device sizes
-   - ✅ **SWC Minification**: 70% faster builds than Terser
-   - ✅ **Font Optimization**: Automatic font optimization
-   - ✅ **Caching Headers**: Static assets cached for 1 year (immutable)
-   - ✅ **Security Headers**: X-Frame-Options, X-Content-Type-Options, Referrer-Policy
+## Future Enhancements
 
-2. **React Performance**:
-   - ✅ **Memoization**: `useMemo` for jobs list to prevent unnecessary re-renders
-   - ✅ **Callback Optimization**: `useCallback` for all event handlers
-   - ✅ **Functional State Updates**: Prevents stale closures
-   - ✅ **Proper Cleanup**: Clear intervals on unmount/error
-   - ✅ **Code Splitting**: Lazy loading of components
+Some ideas for future improvements:
+- Use pgvector for semantic job matching instead of hash-based embeddings
+- Add background job processing with RQ/Redis for long-running tasks
+- Store PDFs in S3 instead of local filesystem
+- Support more application portals beyond Greenhouse and Lever
+- Track application success rates and provide analytics
+- A/B test different resume versions to see what works best
 
-3. **UI/UX Enhancements**:
-   - ✅ **Skeleton Loaders**: Better perceived performance during loading
-   - ✅ **Smooth Animations**: Fade-in effects, shimmer animations
-   - ✅ **Progress Indicators**: Real-time progress with status messages
-   - ✅ **Error Handling**: User-friendly error messages
-   - ✅ **Accessibility**: Reduced motion support
+## Debugging
 
-4. **Global CSS Optimizations** (`globals.css`):
-   - ✅ **Font Rendering**: Antialiased fonts for crisp text
-   - ✅ **Smooth Scrolling**: Better navigation experience
-   - ✅ **Animation Performance**: Optimized with `will-change`
-   - ✅ **Accessibility**: Respects `prefers-reduced-motion`
-
-### Backend Optimizations
-
-1. **FastAPI Middleware** (`main.py`):
-   - ✅ **GZip Compression**: 70-90% response size reduction
-   - ✅ **CORS Optimization**: Proper headers for security
-
-2. **Database Optimizations** (`database.py`):
-   - ✅ **Connection Pooling**: 
-     - Pool size: 10 connections
-     - Max overflow: 20 connections
-     - Pre-ping: Verify connections before use
-     - Auto-recycle: Connections recycled after 1 hour
-   - ✅ **Query Optimization**: Eager loading with `joinedload` to prevent N+1 queries
-   - ✅ **SQL Logging**: Disabled in production for performance (`echo=False`)
-
-3. **API Response Caching** (`api/jobs.py`):
-   - ✅ **In-Memory Cache**: 5-minute TTL for job searches
-   - ✅ **Cache Key Generation**: MD5 hash of search parameters
-   - ✅ **Cache Cleanup**: Automatic cleanup of old entries (max 50 entries)
-
-4. **Query Optimization** (`api/tailor.py`, `api/profile.py`):
-   - ✅ **Eager Loading**: User profile loaded in single query using `joinedload`
-   - ✅ **Reduced Database Calls**: Prevents N+1 query problems
-
-### Performance Metrics
-
-**Expected Improvements**:
-- **Page Load Time**: 40-60% faster (compression + caching)
-- **Database Queries**: 50-70% reduction (eager loading + caching)
-- **API Response Size**: 70-90% smaller (GZip compression)
-- **React Re-renders**: 60-80% reduction (memoization)
-- **User Perceived Performance**: 2-3x faster (skeleton loaders)
-
-### Legacy Optimizations
-
-1. **Async Operations**: All I/O operations are async
-2. **Database Indexing**: UUID primary keys, unique constraints
-3. **Caching**: Resume parsing cached in database
-4. **Pagination**: Job search paginated (up to 150 items processed)
-5. **Filtering**: Pre-filtering before parsing (saves time)
-6. **Rate Limiting**: Exponential backoff for API calls
-7. **Connection Pooling**: Optimized database connections
-6. **Retry Logic**: Exponential backoff for API rate limits
+Backend logs appear in the uvicorn console output. You can query the database directly with psql. API docs are available at http://localhost:8000/docs (Swagger UI). Frontend network requests can be inspected in browser DevTools. For Playwright debugging, set headless=False to see browser actions. Gemini API responses are logged to the console for debugging.
 
 ---
 
-## 🐛 Error Handling
-
-1. **API Errors**: HTTPException with status codes
-2. **Validation Errors**: Pydantic validation
-3. **Database Errors**: SQLAlchemy exception handling
-4. **AI Errors**: Retry logic with exponential backoff
-5. **File Errors**: Try/except for file operations
-6. **Frontend Errors**: Try/catch with user-friendly messages
-
----
-
-## 📝 Future Enhancements
-
-1. **Vector Search**: Use pgvector for semantic job matching
-2. **Background Jobs**: RQ/Redis for async processing
-3. **S3 Storage**: Store PDFs in S3 instead of local filesystem
-4. **More Portals**: Add support for more application portals
-5. **Analytics**: Track application success rates
-6. **A/B Testing**: Test different resume versions
-
----
-
-## 🔍 Debugging Tips
-
-1. **Backend Logs**: Check uvicorn console output
-2. **Database**: Use `psql` to query tables directly
-3. **API Docs**: Visit `http://localhost:8000/docs` for Swagger UI
-4. **Frontend**: Browser DevTools for network requests
-5. **Playwright**: Set `headless=False` to see browser actions
-6. **Gemini**: Check API response in console logs
-
----
-
-This documentation covers all technical aspects of the Hack-A-Job project. For specific implementation details, refer to the source code files mentioned in each section.
-
+This documentation covers the main technical aspects of Hack-A-Job. For specific implementation details, check the source code files mentioned in each section.
