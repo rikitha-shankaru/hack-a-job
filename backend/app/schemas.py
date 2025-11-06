@@ -34,6 +34,7 @@ class JobResponse(BaseModel):
     datePosted: Optional[date]
     url: str
     jd_keywords: Optional[List[str]] = []
+    jd_text: Optional[str] = None  # Job description text for cover letter detection
 
 class JobSearchResponse(BaseModel):
     jobs: List[JobResponse]

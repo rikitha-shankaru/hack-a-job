@@ -35,7 +35,8 @@ async def search_jobs(
                     location=job.location,
                     datePosted=job.date_posted,
                     url=job.url,
-                    jd_keywords=job.jd_keywords or []
+                    jd_keywords=job.jd_keywords or [],
+                    jd_text=job.jd_text  # Include job description for cover letter detection
                 )
                 for job in jobs_to_return
             ]
