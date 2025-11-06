@@ -2,13 +2,6 @@
 
 **AI-Powered Job Application Assistant** - Automated resume tailoring, cover letter generation, and intelligent application form filling.
 
-## 🏆 Prize-Eligible Features
-
-✅ **Google Gemini API** - Used for ALL AI operations  
-✅ **LangGraph Workflow** - Complete end-to-end orchestration  
-✅ **AI Question Answering** - Intelligent form question handling  
-✅ **Format Preservation** - LaTeX/Overleaf integration  
-
 ## ✨ Features
 
 - **🤖 AI Resume Parsing**: Extract structured data from PDF resumes using Google Gemini
