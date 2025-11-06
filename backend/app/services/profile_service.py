@@ -2,6 +2,7 @@ from app.config import settings
 from app.utils.gemini_client import GeminiClient
 from app.utils.resume_parser import ResumeParser
 from app.utils.pdf_parser import PDFParser
+from app.utils.pdf_to_latex import PDFToLaTeXConverter
 from typing import Dict, Any, Optional
 import json
 import os
@@ -11,6 +12,7 @@ class ProfileService:
         self.gemini_client = GeminiClient()
         self.parser = ResumeParser()
         self.pdf_parser = PDFParser()
+        self.pdf_to_latex = PDFToLaTeXConverter()
     
     async def parse_resume(
         self,
@@ -28,8 +30,20 @@ class ProfileService:
             resume_text = pdf_data["text"]
             resume_pdf_url = f"/uploads/resumes/{os.path.basename(resume_pdf_path)}"
             
-            # Generate LaTeX template from PDF structure
-            resume_latex_template = await self._generate_latex_template_from_pdf(pdf_data)
+            # Parse resume JSON first (needed for LaTeX conversion)
+            # We'll parse it here temporarily to get structure
+            temp_resume_json = await self.gemini_client.parse_resume(resume_text)
+            
+            # Convert PDF to LaTeX code preserving exact formatting
+            try:
+                resume_latex_template = await self.pdf_to_latex.convert_pdf_to_latex(
+                    pdf_path=resume_pdf_path,
+                    resume_json=temp_resume_json
+                )
+            except Exception as e:
+                print(f"Failed to convert PDF to LaTeX: {e}, using fallback")
+                # Fallback to basic template generation
+                resume_latex_template = await self._generate_latex_template_from_pdf(pdf_data)
         
         elif resume_url:
             # Fetch resume from URL
