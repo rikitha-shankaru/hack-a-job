@@ -17,6 +17,8 @@ interface Job {
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState('');
   const [searchForm, setSearchForm] = useState({
     query: '',
     location: '',
@@ -26,10 +28,44 @@ export default function JobsPage() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setProgress(0);
+    setStatus('Starting search...');
+    setJobs([]);
+    
     try {
+      // Simulate progress updates (since we can't get real-time updates from API)
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev < 90) {
+            const newProgress = prev + Math.random() * 10;
+            if (newProgress < 30) {
+              setStatus('Searching job boards...');
+            } else if (newProgress < 60) {
+              setStatus('Parsing job postings...');
+            } else if (newProgress < 90) {
+              setStatus('Filtering and validating jobs...');
+            }
+            return Math.min(newProgress, 90);
+          }
+          return prev;
+        });
+      }, 500);
+      
       const response = await apiClient.post('/api/jobs/search', searchForm);
+      
+      clearInterval(progressInterval);
+      setProgress(100);
+      setStatus(`Found ${response.data.jobs.length} jobs!`);
+      
       setJobs(response.data.jobs);
-    } catch (error) {
+      
+      setTimeout(() => {
+        setProgress(0);
+        setStatus('');
+      }, 2000);
+    } catch (error: any) {
+      setProgress(0);
+      setStatus('Search failed: ' + (error.response?.data?.detail || 'Unknown error'));
       console.error('Search failed:', error);
     } finally {
       setLoading(false);
@@ -89,10 +125,25 @@ export default function JobsPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            className="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-semibold"
           >
             {loading ? 'Searching...' : 'Search Jobs'}
           </button>
+          
+          {loading && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">{status}</span>
+                <span className="text-sm font-medium text-indigo-600">{Math.round(progress)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div
+                  className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </form>
 
         <div className="space-y-4">

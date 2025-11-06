@@ -23,6 +23,9 @@ async def search_jobs(
             db=db
         )
         
+        # Return up to 100 jobs (user requested 50-100)
+        jobs_to_return = jobs[:100]
+        
         return JobSearchResponse(
             jobs=[
                 JobResponse(
@@ -34,7 +37,7 @@ async def search_jobs(
                     url=job.url,
                     jd_keywords=job.jd_keywords or []
                 )
-                for job in jobs
+                for job in jobs_to_return
             ]
         )
     except Exception as e:

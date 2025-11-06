@@ -82,50 +82,64 @@ class JobService:
         # Combine all queries
         all_queries = base_queries + job_board_queries
         
-        # Search all queries aggressively
+        # Search all queries aggressively - but limit to avoid timeout
+        # Focus on job board queries first (they give better results faster)
         all_items = []
         seen_urls = set()
         
-        for search_query in all_queries:
-            # Search up to 3 pages per query (30 results per query)
-            for start in [1, 11, 21]:
+        # Search job boards first (better quality, faster)
+        for search_query in job_board_queries[:5]:  # Top 5 job boards
+            for start in [1, 11]:  # 2 pages per board (20 results)
                 items = await self._search_cse(search_query, date_restrict, start)
                 if not items:
                     break
                 
-                # Add unique items only
                 for item in items:
                     url = item.get("link", "")
                     if url and url not in seen_urls:
                         seen_urls.add(url)
                         all_items.append(item)
                 
-                # Stop if we have enough results
                 if len(all_items) >= 100:
                     break
             
-            # Stop if we have enough results
             if len(all_items) >= 100:
                 break
         
+        # Then search base queries if we need more
+        if len(all_items) < 50:
+            for search_query in base_queries[:3]:  # Top 3 base queries
+                items = await self._search_cse(search_query, date_restrict, 1)
+                if items:
+                    for item in items:
+                        url = item.get("link", "")
+                        if url and url not in seen_urls:
+                            seen_urls.add(url)
+                            all_items.append(item)
+                
+                if len(all_items) >= 100:
+                    break
+        
         # all_items already deduplicated above, now process them
-        # Fetch and parse each job posting
+        # Fetch and parse each job posting - optimize for speed
         jobs = []
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            # Process MORE items to account for filtering - we want 20-30 good jobs
-            # Process up to 100 items, filtering will reduce to quality results
-            for item in all_items[:100]:
+        async with httpx.AsyncClient(timeout=15.0) as client:  # Reduced timeout for speed
+            # Process MORE items to account for filtering - we want 50-100 good jobs
+            # Process up to 120 items, filtering will reduce to quality results
+            total_items = min(len(all_items), 120)
+            
+            for idx, item in enumerate(all_items[:120]):
                 url = item.get("link", "")
                 if not url:
                     continue
                 
-                # Filter out non-job URLs
+                # Filter out non-job URLs BEFORE fetching (saves time)
                 if self._is_non_job_url(url):
                     continue
                 
                 try:
-                    # Fetch HTML
-                    response = await client.get(url, follow_redirects=True)
+                    # Fetch HTML with shorter timeout for speed
+                    response = await client.get(url, follow_redirects=True, timeout=10.0)
                     html = response.text
                     
                     # Quick check for unavailable jobs before parsing
