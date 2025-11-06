@@ -2,6 +2,9 @@ from app.config import settings
 import google.generativeai as genai
 from typing import Dict, Any, List
 import json
+import asyncio
+import time
+from google.api_core import retry
 
 class GeminiClient:
     """Google Gemini API client for AI operations"""
@@ -60,7 +63,8 @@ Resume text:
 
 Output only the JSON object, no other text."""
         
-        response = self.model.generate_content(prompt)
+        # Add retry logic for rate limiting
+        response = await self._generate_with_retry(prompt)
         result_text = response.text.strip()
         
         # Clean up response (remove markdown code blocks if present)
@@ -104,7 +108,8 @@ Level Target: {level_target or 'N/A'}
 
 Output ONLY valid JSON with the same structure as the base resume. Do not add new companies, titles, or dates. Only rephrase and reorder."""
         
-        response = self.model.generate_content(prompt)
+        # Add retry logic for rate limiting
+        response = await self._generate_with_retry(prompt)
         result_text = response.text.strip()
         
         # Clean up response
@@ -149,7 +154,8 @@ Output JSON with this structure:
   "closing": "string (max 200 chars)"
 }}"""
         
-        response = self.model.generate_content(prompt)
+        # Add retry logic for rate limiting
+        response = await self._generate_with_retry(prompt)
         result_text = response.text.strip()
         
         # Clean up response
@@ -215,7 +221,8 @@ Output a JSON object with a "recommendations" array of strings. Each recommendat
 
 Example: {{"recommendations": ["Add keyword X to skills section", "Emphasize Y experience in summary", ...]}}"""
         
-        response = self.model.generate_content(prompt)
+        # Add retry logic for rate limiting
+        response = await self._generate_with_retry(prompt)
         result_text = response.text.strip()
         
         # Clean up
@@ -256,7 +263,8 @@ Output JSON with:
 
 Be objective and thorough."""
         
-        response = self.model.generate_content(prompt)
+        # Add retry logic for rate limiting
+        response = await self._generate_with_retry(prompt)
         result_text = response.text.strip()
         
         # Clean up
