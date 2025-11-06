@@ -22,9 +22,9 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   
   // Experimental features for performance
-  experimental: {
-    optimizeCss: true,
-  },
+  // experimental: {
+  //   optimizeCss: true, // Disabled - requires critters package
+  // },
   
   // Headers for caching and security
   async headers() {
