@@ -56,7 +56,11 @@ class ProfileService:
             raise ValueError("Either resumeText, resumeFileUrl, or resumeFile must be provided")
         
         # Parse resume using Gemini for structured extraction
-        structured_resume = await self.gemini_client.parse_resume(resume_text)
+        # If we already parsed it for LaTeX conversion, reuse it
+        if 'temp_resume_json' in locals() and temp_resume_json:
+            structured_resume = temp_resume_json
+        else:
+            structured_resume = await self.gemini_client.parse_resume(resume_text)
         
         # Extract skills, metrics, links
         skills = structured_resume.get("skills", [])
