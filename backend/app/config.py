@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     # Google Gemini
     google_gemini_api_key: str
     
+    # OpenAI (optional - falls back to Gemini if not provided)
+    openai_api_key: Optional[str] = None
+    
     # Database
     database_url: str
     

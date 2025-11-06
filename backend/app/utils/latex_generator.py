@@ -178,12 +178,26 @@ ${projects}
         template: str,
         resume_json: Dict[str, Any]
     ) -> str:
-        """Inject new content into original LaTeX template"""
-        # This is a simplified version - in production, you'd want more sophisticated
-        # parsing to preserve exact formatting
+        """Inject new content into original LaTeX template - preserving exact formatting"""
         latex = template
         
-        # Replace experience sections
+        # Format header
+        name = resume_json.get("name", "")
+        email = resume_json.get("email", "")
+        phone = resume_json.get("phone", "")
+        location = resume_json.get("location", "")
+        
+        # Replace header placeholders
+        latex = latex.replace("${name}", self._escape_latex(name))
+        latex = latex.replace("${email}", self._escape_latex(email))
+        latex = latex.replace("${phone}", self._escape_latex(phone))
+        latex = latex.replace("${location}", self._escape_latex(location))
+        
+        # Format summary
+        summary = self._escape_latex(resume_json.get("summary", ""))
+        latex = latex.replace("${summary}", summary)
+        
+        # Format experience - preserve original structure
         experience_latex = ""
         for exp in resume_json.get("experience", []):
             company = exp.get("company", "")
@@ -192,15 +206,77 @@ ${projects}
             end = exp.get("end", "Present")
             bullets = exp.get("bullets", [])
             
-            experience_latex += f"\\textbf{{{title}}} at {company} ({start} - {end})\\\\\n"
-            experience_latex += "\\begin{itemize}[leftmargin=*]\n"
-            for bullet in bullets:
+            # Use same format as original template
+            experience_latex += f"\\textbf{{{self._escape_latex(title)}}} at {self._escape_latex(company)} ({start} - {end})\\\\\n"
+            experience_latex += "\\begin{itemize}[leftmargin=*,topsep=0pt,itemsep=2pt]\n"
+            for bullet in bullets[:3]:  # Limit to 3 bullets
                 bullet_escaped = self._escape_latex(bullet)
                 experience_latex += f"    \\item {bullet_escaped}\n"
-            experience_latex += "\\end{itemize}\n\\vspace{6pt}\n"
+            experience_latex += "\\end{itemize}\n\\vspace{4pt}\n"
         
-        # Simple substitution (can be enhanced)
         latex = latex.replace("${experience}", experience_latex)
+        
+        # Format education
+        education_latex = ""
+        for edu in resume_json.get("education", []):
+            if isinstance(edu, dict):
+                degree = edu.get("degree", "")
+                school = edu.get("school", "")
+                major = edu.get("major", "")
+                start = edu.get("start", "")
+                end = edu.get("end", "")
+                gpa = edu.get("gpa", "")
+                
+                edu_parts = []
+                if degree:
+                    if major:
+                        edu_parts.append(f"{degree} in {major}")
+                    else:
+                        edu_parts.append(degree)
+                if school:
+                    edu_parts.append(school)
+                
+                date_range = ""
+                if start and end:
+                    date_range = f"({start} - {end})"
+                elif start:
+                    date_range = f"({start})"
+                
+                edu_line = " - ".join(edu_parts)
+                if date_range:
+                    edu_line += f" {date_range}"
+                if gpa:
+                    edu_line += f" | GPA: {gpa}"
+                
+                edu_line_escaped = self._escape_latex(edu_line)
+                education_latex += f"\\textbf{{{edu_line_escaped}}}\\\\\n"
+            else:
+                edu_escaped = self._escape_latex(str(edu))
+                education_latex += f"{edu_escaped}\\\\\n"
+        
+        latex = latex.replace("${education}", education_latex)
+        
+        # Format skills
+        skills = resume_json.get("skills", [])
+        skills_latex = ", ".join([self._escape_latex(s) for s in skills[:20]])  # Limit to 20
+        latex = latex.replace("${skills}", skills_latex)
+        
+        # Format projects
+        projects_latex = ""
+        if resume_json.get("projects"):
+            projects_latex = "\\section{Projects}\n"
+            projects_list = resume_json.get("projects", [])[:3]  # Limit to 3
+            for project in projects_list:
+                name = project.get("name", "")
+                bullets = project.get("bullets", [])[:2]  # Limit to 2 bullets
+                projects_latex += f"\\textbf{{{self._escape_latex(name)}}}\n"
+                projects_latex += "\\begin{itemize}[leftmargin=*,topsep=0pt,itemsep=2pt]\n"
+                for bullet in bullets:
+                    bullet_escaped = self._escape_latex(bullet)
+                    projects_latex += f"    \\item {bullet_escaped}\n"
+                projects_latex += "\\end{itemize}\n\\vspace{4pt}\n"
+        
+        latex = latex.replace("${projects}", projects_latex)
         
         return latex
     

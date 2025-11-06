@@ -1,5 +1,6 @@
 from app.config import settings
 from app.utils.gemini_client import GeminiClient
+from app.utils.openai_client import OpenAIClient
 from app.utils.latex_generator import LaTeXGenerator
 from app.utils.latex_compiler import LaTeXCompiler
 from app.utils.pdf_generator import PDFGenerator
@@ -13,6 +14,14 @@ import os
 class TailorService:
     def __init__(self):
         self.gemini_client = GeminiClient()
+        # Initialize OpenAI client only if API key is available
+        try:
+            self.openai_client = OpenAIClient()
+            self.use_openai = True
+        except (ValueError, Exception):
+            self.openai_client = None
+            self.use_openai = False
+            print("OpenAI API key not configured, using Gemini only")
         self.latex_generator = LaTeXGenerator()
         self.latex_compiler = LaTeXCompiler()
         self.pdf_generator = PDFGenerator()  # Still used for cover letter
@@ -42,22 +51,60 @@ class TailorService:
         job_description = job.jd_text or ""
         jd_keywords = job.jd_keywords or []
         
-        # Generate tailored resume using Gemini
-        tailored_resume = await self.gemini_client.tailor_resume(
-            base_resume_json=base_resume_json,
-            job_description=job_description,
-            jd_keywords=jd_keywords,
-            role_target=user.role_target,
-            level_target=user.level_target
-        )
+        # Generate tailored resume using OpenAI (better quality) with Gemini fallback
+        if self.use_openai and self.openai_client:
+            try:
+                tailored_resume = await self.openai_client.tailor_resume(
+                    base_resume_json=base_resume_json,
+                    job_description=job_description,
+                    jd_keywords=jd_keywords,
+                    role_target=user.role_target,
+                    level_target=user.level_target
+                )
+            except Exception as e:
+                print(f"OpenAI failed, falling back to Gemini: {e}")
+                tailored_resume = await self.gemini_client.tailor_resume(
+                    base_resume_json=base_resume_json,
+                    job_description=job_description,
+                    jd_keywords=jd_keywords,
+                    role_target=user.role_target,
+                    level_target=user.level_target
+                )
+        else:
+            # Use Gemini if OpenAI not available
+            tailored_resume = await self.gemini_client.tailor_resume(
+                base_resume_json=base_resume_json,
+                job_description=job_description,
+                jd_keywords=jd_keywords,
+                role_target=user.role_target,
+                level_target=user.level_target
+            )
         
-        # Generate cover letter using Gemini
-        cover_letter = await self.gemini_client.generate_cover_letter(
-            resume_json=tailored_resume,
-            job_description=job_description,
-            company=job.company,
-            jd_keywords=jd_keywords
-        )
+        # Generate cover letter using OpenAI (better quality) with Gemini fallback
+        if self.use_openai and self.openai_client:
+            try:
+                cover_letter = await self.openai_client.generate_cover_letter(
+                    resume_json=tailored_resume,
+                    job_description=job_description,
+                    company=job.company,
+                    jd_keywords=jd_keywords
+                )
+            except Exception as e:
+                print(f"OpenAI cover letter failed, falling back to Gemini: {e}")
+                cover_letter = await self.gemini_client.generate_cover_letter(
+                    resume_json=tailored_resume,
+                    job_description=job_description,
+                    company=job.company,
+                    jd_keywords=jd_keywords
+                )
+        else:
+            # Use Gemini if OpenAI not available
+            cover_letter = await self.gemini_client.generate_cover_letter(
+                resume_json=tailored_resume,
+                job_description=job_description,
+                company=job.company,
+                jd_keywords=jd_keywords
+            )
         
         # Generate resume PDF using LaTeX (preserving original formatting)
         original_latex_template = user.profile.resume_latex_template if user.profile else None
