@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import apiClient from '@/lib/api';
 import Link from 'next/link';
 import { JobCardSkeleton, ProgressBarSkeleton } from '@/components/SkeletonLoader';
+import ParticleBackground from '@/components/ParticleBackground';
 
 interface Job {
   id: string;
