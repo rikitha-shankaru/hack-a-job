@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import apiClient from '@/lib/api';
 import Link from 'next/link';
 
@@ -15,6 +16,7 @@ interface Job {
 }
 
 export default function JobsPage() {
+  const searchParams = useSearchParams();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -25,15 +27,32 @@ export default function JobsPage() {
     recency: 'w2',
   });
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Auto-search on mount if coming from upload
+  useEffect(() => {
+    const autoSearch = searchParams.get('autoSearch');
+    const query = searchParams.get('query') || '';
+    const location = searchParams.get('location') || '';
+    const recency = searchParams.get('recency') || 'w2';
+
+    if (autoSearch === 'true' && query) {
+      setSearchForm({
+        query,
+        location,
+        recency,
+      });
+      // Trigger search automatically
+      handleAutoSearch({ query, location, recency });
+    }
+  }, [searchParams]);
+
+  const performSearch = async (searchData: { query: string; location: string; recency: string }) => {
     setLoading(true);
     setProgress(0);
     setStatus('Starting search...');
     setJobs([]);
     
     try {
-      // Simulate progress updates (since we can't get real-time updates from API)
+      // Simulate progress updates
       const progressInterval = setInterval(() => {
         setProgress((prev) => {
           if (prev < 90) {
@@ -51,13 +70,15 @@ export default function JobsPage() {
         });
       }, 500);
       
-      const response = await apiClient.post('/api/jobs/search', searchForm);
+      const response = await apiClient.post('/api/jobs/search', searchData);
       
       clearInterval(progressInterval);
       setProgress(100);
       setStatus(`Found ${response.data.jobs.length} jobs!`);
       
       setJobs(response.data.jobs);
+      // Store jobs in localStorage for use in tailor page
+      localStorage.setItem('jobs', JSON.stringify(response.data.jobs));
       
       setTimeout(() => {
         setProgress(0);
@@ -70,6 +91,15 @@ export default function JobsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAutoSearch = (searchData: { query: string; location: string; recency: string }) => {
+    performSearch(searchData);
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    performSearch(searchForm);
   };
 
   return (

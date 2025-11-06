@@ -13,6 +13,25 @@ export default function TailorPage() {
   const [assets, setAssets] = useState<any>(null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'original' | 'tailored' | 'cover'>('tailored');
+  const [jobUrl, setJobUrl] = useState<string>('');
+
+  // Fetch job details to get URL
+  useEffect(() => {
+    const fetchJobUrl = async () => {
+      try {
+        // We'll need to add an API endpoint to get job by ID, or store it in localStorage
+        // For now, we'll try to get it from the jobs list or use a placeholder
+        const jobs = JSON.parse(localStorage.getItem('jobs') || '[]');
+        const job = jobs.find((j: any) => j.id === jobId);
+        if (job?.url) {
+          setJobUrl(job.url);
+        }
+      } catch (err) {
+        console.error('Failed to fetch job URL:', err);
+      }
+    };
+    fetchJobUrl();
+  }, [jobId]);
 
   const handleTailor = async () => {
     setTailorLoading(true);
@@ -131,22 +150,7 @@ export default function TailorPage() {
                     AI is analyzing and tailoring your resume...
                   </span>
                 ) : (
-                  '🤖 Generate AI-Tailored Resume'
-                )}
-              </button>
-              
-              <button
-                onClick={handleCompleteWorkflow}
-                disabled={tailorLoading || workflowLoading}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-4 rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 font-semibold text-lg transition-all shadow-lg hover:shadow-xl"
-              >
-                {workflowLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="animate-spin">⚙️</span>
-                    Running complete workflow...
-                  </span>
-                ) : (
-                  '🚀 Run Complete Workflow (Tailor + Autofill + Email)'
+                  '🤖 Generate AI-Tailored Resume & Cover Letter'
                 )}
               </button>
             </div>
@@ -345,6 +349,70 @@ export default function TailorPage() {
               >
                 📧 Email Me All Documents
               </button>
+            </div>
+
+            {/* Apply Options */}
+            <div className="bg-white rounded-xl shadow-xl p-8 border border-purple-100">
+              <h2 className="text-2xl font-semibold mb-6">Ready to Apply?</h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Manual Apply */}
+                <div className="border border-gray-200 rounded-lg p-6 hover:border-purple-300 transition-colors">
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-3xl">✋</span>
+                    <h3 className="text-xl font-semibold">Manual Application</h3>
+                  </div>
+                  <p className="text-gray-600 mb-4 text-sm">
+                    Download your tailored resume and cover letter, then apply directly on the job posting page.
+                  </p>
+                  <div className="space-y-2">
+                    {jobUrl ? (
+                      <a
+                        href={jobUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full text-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+                      >
+                        View Job Posting →
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        className="block w-full text-center px-4 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed font-medium"
+                      >
+                        Job URL Loading...
+                      </button>
+                    )}
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      Use your downloaded documents to apply manually
+                    </p>
+                  </div>
+                </div>
+
+                {/* AI Autofill */}
+                <div className="border border-gray-200 rounded-lg p-6 hover:border-purple-300 transition-colors">
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-3xl">🤖</span>
+                    <h3 className="text-xl font-semibold">AI Autofill</h3>
+                  </div>
+                  <p className="text-gray-600 mb-4 text-sm">
+                    Let AI automatically fill out the application form. You'll review and approve before submission.
+                  </p>
+                  <button
+                    onClick={handleCompleteWorkflow}
+                    disabled={workflowLoading}
+                    className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 transition font-medium"
+                  >
+                    {workflowLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="animate-spin">⚙️</span>
+                        Autofilling...
+                      </span>
+                    ) : (
+                      '🚀 Start AI Autofill →'
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
