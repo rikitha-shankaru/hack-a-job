@@ -1,0 +1,191 @@
+from typing import Dict, Any
+import os
+import tempfile
+import subprocess
+from jinja2 import Template
+
+class LaTeXGenerator:
+    """Generate LaTeX resumes from structured data"""
+    
+    def __init__(self):
+        self.template = self._get_resume_template()
+    
+    def _get_resume_template(self) -> str:
+        """Get LaTeX resume template"""
+        return r"""\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+
+% Style settings
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+% Section formatting
+\titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+
+% Custom commands
+\newcommand{\resumeheader}[4]{
+    \begin{center}
+        \textbf{\Large #1} \\
+        #2 \textbar{} #3 \textbar{} #4
+    \end{center}
+    \vspace{0.3cm}
+}
+
+\newcommand{\resumeitem}[4]{
+    \textbf{#1} \hfill #2 \\
+    \textit{#3} \hfill #4
+    \begin{itemize}[leftmargin=*,topsep=0pt,itemsep=2pt]
+}
+
+\begin{document}
+
+\resumeheader{${name}}{${email}}{${phone}}{${location}}
+
+\section{Summary}
+${summary}
+
+\section{Experience}
+${experience}
+
+\section{Education}
+${education}
+
+\section{Skills}
+${skills}
+
+${projects}
+
+\end{document}
+"""
+    
+    async def generate_latex(
+        self,
+        resume_json: Dict[str, Any],
+        original_latex_template: Optional[str] = None
+    ) -> str:
+        """Generate LaTeX from resume JSON, optionally using original template"""
+        if original_latex_template:
+            # Use original template and inject new content
+            return self._inject_content_into_template(original_latex_template, resume_json)
+        else:
+            # Generate new LaTeX from template
+            return self._generate_from_template(resume_json)
+    
+    def _generate_from_template(self, resume_json: Dict[str, Any]) -> str:
+        """Generate LaTeX using default template"""
+        template = Template(self.template)
+        
+        # Format experience
+        experience_latex = ""
+        for exp in resume_json.get("experience", []):
+            company = exp.get("company", "")
+            title = exp.get("title", "")
+            start = exp.get("start", "")
+            end = exp.get("end", "Present")
+            bullets = exp.get("bullets", [])
+            
+            experience_latex += f"\\resumeitem{{{title}}}{{{start} - {end}}}{{{company}}}{{}}\n"
+            for bullet in bullets:
+                # Escape LaTeX special characters
+                bullet_escaped = self._escape_latex(bullet)
+                experience_latex += f"        \\item {bullet_escaped}\n"
+            experience_latex += "    \\end{itemize}\n\\vspace{6pt}\n"
+        
+        # Format education
+        education_latex = ""
+        for edu in resume_json.get("education", []):
+            if isinstance(edu, dict):
+                degree = edu.get("degree", "")
+                school = edu.get("school", "")
+                year = edu.get("year", "")
+                education_latex += f"\\textbf{{{degree}}} - {school} ({year})\\\\\n"
+            else:
+                education_latex += f"{edu}\\\\\n"
+        
+        # Format skills
+        skills = resume_json.get("skills", [])
+        skills_latex = ", ".join(skills)
+        
+        # Format projects
+        projects_latex = ""
+        if resume_json.get("projects"):
+            projects_latex = "\\section{Projects}\n"
+            for project in resume_json.get("projects", []):
+                name = project.get("name", "")
+                bullets = project.get("bullets", [])
+                projects_latex += f"\\textbf{{{name}}}\n"
+                projects_latex += "\\begin{itemize}[leftmargin=*,topsep=0pt,itemsep=2pt]\n"
+                for bullet in bullets:
+                    bullet_escaped = self._escape_latex(bullet)
+                    projects_latex += f"    \\item {bullet_escaped}\n"
+                projects_latex += "\\end{itemize}\n\\vspace{6pt}\n"
+        
+        return template.render(
+            name=resume_json.get("name", ""),
+            email=resume_json.get("email", ""),
+            phone=resume_json.get("phone", ""),
+            location=resume_json.get("location", ""),
+            summary=self._escape_latex(resume_json.get("summary", "")),
+            experience=experience_latex,
+            education=education_latex,
+            skills=skills_latex,
+            projects=projects_latex
+        )
+    
+    def _inject_content_into_template(
+        self,
+        template: str,
+        resume_json: Dict[str, Any]
+    ) -> str:
+        """Inject new content into original LaTeX template"""
+        # This is a simplified version - in production, you'd want more sophisticated
+        # parsing to preserve exact formatting
+        latex = template
+        
+        # Replace experience sections
+        experience_latex = ""
+        for exp in resume_json.get("experience", []):
+            company = exp.get("company", "")
+            title = exp.get("title", "")
+            start = exp.get("start", "")
+            end = exp.get("end", "Present")
+            bullets = exp.get("bullets", [])
+            
+            experience_latex += f"\\textbf{{{title}}} at {company} ({start} - {end})\\\\\n"
+            experience_latex += "\\begin{itemize}[leftmargin=*]\n"
+            for bullet in bullets:
+                bullet_escaped = self._escape_latex(bullet)
+                experience_latex += f"    \\item {bullet_escaped}\n"
+            experience_latex += "\\end{itemize}\n\\vspace{6pt}\n"
+        
+        # Simple substitution (can be enhanced)
+        latex = latex.replace("${experience}", experience_latex)
+        
+        return latex
+    
+    def _escape_latex(self, text: str) -> str:
+        """Escape LaTeX special characters"""
+        special_chars = {
+            '&': r'\&',
+            '%': r'\%',
+            '$': r'\$',
+            '#': r'\#',
+            '^': r'\textasciicircum{}',
+            '_': r'\_',
+            '{': r'\{',
+            '}': r'\}',
+            '~': r'\textasciitilde{}',
+            '\\': r'\textbackslash{}'
+        }
+        for char, escaped in special_chars.items():
+            text = text.replace(char, escaped)
+        return text
+
