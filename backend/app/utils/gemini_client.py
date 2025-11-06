@@ -429,7 +429,17 @@ Answer:"""
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
-        return response.text.strip()
+        
+        # Validate response exists
+        if not response or not hasattr(response, 'text'):
+            raise ValueError("Empty response from Gemini API")
+        
+        result_text = response.text.strip()
+        
+        if not result_text:
+            raise ValueError("Empty response text from Gemini API")
+        
+        return result_text
     
     async def generate_embedding(self, text: str) -> List[float]:
         """Generate embedding vector"""
