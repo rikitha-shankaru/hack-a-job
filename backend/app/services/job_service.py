@@ -164,16 +164,31 @@ class JobService:
                     html = response.text
                     
                     # Quick check for unavailable jobs before parsing
-                    html_lower = html.lower()
-                    unavailable_indicators = [
-                        'no longer available', 'job is no longer available', 
-                        'position has been filled', 'this job is closed',
-                        'application closed', 'position closed', 'no longer accepting',
-                        'sorry this job', 'expired', 'unavailable', 'filled'
-                    ]
-                    if any(indicator in html_lower for indicator in unavailable_indicators):
-                        print(f"Skipping unavailable job: {url}")
-                        continue
+                    # BUT: Be more specific - don't skip LinkedIn/Indeed jobs based on generic text
+                    # These sites often have "unavailable" text in their UI that doesn't mean the job is closed
+                    is_linkedin_or_indeed = 'linkedin.com/jobs' in url or 'indeed.com' in url
+                    
+                    if not is_linkedin_or_indeed:
+                        # For other sites, check for unavailable indicators
+                        html_lower = html.lower()
+                        unavailable_indicators = [
+                            'no longer available', 'job is no longer available', 
+                            'position has been filled', 'this job is closed',
+                            'application closed', 'position closed', 'no longer accepting',
+                            'sorry this job', 'expired', 'unavailable', 'filled'
+                        ]
+                        # Only skip if we find a clear unavailable message (not just the word "unavailable" alone)
+                        if any(indicator in html_lower for indicator in unavailable_indicators):
+                            # Double-check: make sure it's not just a false positive
+                            # Skip if we see multiple indicators or very specific messages
+                            specific_indicators = [
+                                'no longer available', 'job is no longer available',
+                                'position has been filled', 'this job is closed',
+                                'application closed', 'position closed'
+                            ]
+                            if any(indicator in html_lower for indicator in specific_indicators):
+                                print(f"Skipping unavailable job: {url}")
+                                continue
                     
                     # Parse job posting
                     job_data = await self.parser.parse_job_posting(url, html)

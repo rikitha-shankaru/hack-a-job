@@ -136,6 +136,10 @@ class JobParser:
         if not date_str:
             return None
         
+        # Ensure date_str is a string before calling .strip()
+        if not isinstance(date_str, str):
+            return None
+        
         from datetime import date as date_type
         
         # Common date formats to try
