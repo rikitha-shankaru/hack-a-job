@@ -31,27 +31,63 @@ class JobService:
         }
         date_restrict = date_mapping.get(recency, "w2")
         
-        # Build query EXACTLY like Google's native job search
-        # Format: "{query} jobs in {location}" or "{query} jobs"
+        # Build multiple query strategies to maximize results
+        # Google searches broadly across many sources, so we'll do the same
+        
+        base_queries = []
         if location:
-            # Google format: "software jobs in california"
-            google_query = f'{query} jobs in {location}'
+            base_queries = [
+                f'{query} jobs in {location}',
+                f'{query} {location} jobs',
+                f'{query} job {location}',
+                f'{query} hiring {location}',
+                f'{query} career {location}',
+                f'{query} position {location}',
+            ]
         else:
-            google_query = f'{query} jobs'
+            base_queries = [
+                f'{query} jobs',
+                f'{query} job',
+                f'{query} hiring',
+                f'{query} career',
+                f'{query} position',
+            ]
         
-        # Also try variations that Google uses
-        queries_to_try = [
-            google_query,  # Primary: "software jobs in california"
-            f'{query} {location} jobs' if location else f'{query} jobs',  # Alternative format
-            f'{query} job {location}' if location else f'{query} job',  # Singular
-        ]
+        # Also search specific job boards directly (these give better results)
+        job_board_queries = []
+        if location:
+            job_board_queries = [
+                f'{query} site:linkedin.com/jobs {location}',
+                f'{query} site:indeed.com {location}',
+                f'{query} site:glassdoor.com {location}',
+                f'{query} site:greenhouse.io {location}',
+                f'{query} site:lever.co {location}',
+                f'{query} site:monster.com {location}',
+                f'{query} site:ziprecruiter.com {location}',
+                f'{query} site:careers.google.com {location}',
+                f'{query} site:jobs.apple.com {location}',
+                f'{query} site:careers.microsoft.com {location}',
+            ]
+        else:
+            job_board_queries = [
+                f'{query} site:linkedin.com/jobs',
+                f'{query} site:indeed.com',
+                f'{query} site:glassdoor.com',
+                f'{query} site:greenhouse.io',
+                f'{query} site:lever.co',
+                f'{query} site:monster.com',
+                f'{query} site:ziprecruiter.com',
+            ]
         
-        # Search all query variations and combine results
+        # Combine all queries
+        all_queries = base_queries + job_board_queries
+        
+        # Search all queries aggressively
         all_items = []
         seen_urls = set()
         
-        for search_query in queries_to_try:
-            # Search multiple pages for each query (like Google does)
+        for search_query in all_queries:
+            # Search up to 3 pages per query (30 results per query)
             for start in [1, 11, 21]:
                 items = await self._search_cse(search_query, date_restrict, start)
                 if not items:
@@ -64,19 +100,21 @@ class JobService:
                         seen_urls.add(url)
                         all_items.append(item)
                 
-                # Limit total results to avoid too many API calls
-                if len(all_items) >= 50:
+                # Stop if we have enough results
+                if len(all_items) >= 100:
                     break
             
-            if len(all_items) >= 50:
+            # Stop if we have enough results
+            if len(all_items) >= 100:
                 break
         
         # all_items already deduplicated above, now process them
         # Fetch and parse each job posting
         jobs = []
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # Process all items we found (already deduplicated)
-            for item in all_items[:60]:  # Process up to 60, filter will reduce
+            # Process MORE items to account for filtering - we want 20-30 good jobs
+            # Process up to 100 items, filtering will reduce to quality results
+            for item in all_items[:100]:
                 url = item.get("link", "")
                 if not url:
                     continue
@@ -194,17 +232,29 @@ class JobService:
         """Filter out URLs that are clearly not job postings"""
         url_lower = url.lower()
         
+        # Allow job board URLs (these are good!)
+        job_board_patterns = [
+            'linkedin.com/jobs', 'indeed.com', 'glassdoor.com', 'greenhouse.io',
+            'lever.co', 'monster.com', 'ziprecruiter.com', 'careers.',
+            'jobs.', 'job.', 'hiring.', 'apply.', 'career.'
+        ]
+        
+        # If it's from a known job board, allow it
+        if any(pattern in url_lower for pattern in job_board_patterns):
+            return False
+        
         # Exclude common non-job domains
         exclude_patterns = [
             'facebook.com', 'twitter.com', 'instagram.com', 'linkedin.com/company',
-            'youtube.com', 'reddit.com', 'wikipedia.org', 'news', 'blog',
-            '.gov', '.edu', 'consulado', 'police', 'park', 'library', 'museum',
+            'linkedin.com/in/', 'linkedin.com/feed', 'youtube.com', 'reddit.com',
+            'wikipedia.org', '/news/', '/blog/', '/article/', '/story/',
+            '.gov/', '.edu/', 'consulado', 'police', 'park', 'library', 'museum',
             'aquarium', 'botanic', 'school', 'university', 'college', 'law.',
-            'choosechicago.com/event', 'nba.com', 'mlb.com', 'nhl.com',
-            'sheddaquarium', 'chipublib', 'chicagoparkdistrict', 'cps.edu',
-            'chicago.gov', 'ymca', 'facc-chicago.com/events', 'letourdeshore',
-            'episcopalchicago', 'blockclubchicago', 'southsideweekly',
-            'abc7chicago', 'fox32chicago', '6figr.com', 'levels.fyi'
+            'nba.com', 'mlb.com', 'nhl.com', 'sports', 'entertainment',
+            'blockclubchicago', 'southsideweekly', 'abc7chicago', 'fox32chicago',
+            '6figr.com', 'levels.fyi', '/event/', '/events/', '/calendar/',
+            '/about/', '/contact/', '/privacy/', '/terms/', '/help/',
+            'linkedin.com/company/', 'linkedin.com/feed', 'linkedin.com/pulse'
         ]
         
         return any(pattern in url_lower for pattern in exclude_patterns)
@@ -228,22 +278,26 @@ class JobService:
             if any(indicator in jd_lower for indicator in unavailable_indicators):
                 return False
         
-        # Reject generic/nonsensical titles
+        # Reject generic/nonsensical titles - be more aggressive
         generic_titles = [
-            'homepage', 'home page', 'welcome', 'chicago', 'sorry, you have been blocked',
+            'homepage', 'home page', 'welcome', 'sorry, you have been blocked',
             'just a moment', 'headlines', 'upcoming events', 'search salaries',
-            'block club chicago', 'sidetrack chicago', 'city colleges of chicago',
-            'chicago public schools', 'chicago public library', 'chicago park district',
-            'alliance française', 'the university of chicago', 'chicago blackhawks',
-            'chicago bulls', 'white sox', 'abc7chicago', 'fox32chicago',
-            'motorola solutions jobs', 'women in tech', 'big red bulletin',
-            'test lead (aws cloud migration)',  # This might be a duplicate/expired listing
             'jobs jobs found', 'jobs found', 'jobs jobs',  # Generic search result pages
             'powered by people', 'qualcomm careers', 'engineering jobs and more',
-            'careers |', 'careers page', 'all jobs', 'view all jobs'
+            'careers |', 'careers page', 'all jobs', 'view all jobs',
+            'browse jobs', 'find jobs', 'search jobs', 'job search',
+            'linkedin', 'indeed', 'glassdoor', 'monster', 'ziprecruiter',  # Generic site names
+            'sign in', 'log in', 'create account', 'register', 'login',
+            'privacy policy', 'terms of service', 'cookie policy',
+            'about us', 'contact us', 'help center', 'support'
         ]
         
-        if any(gt in title.lower() for gt in generic_titles):
+        # Check if title is just a generic site name
+        title_lower = title.lower().strip()
+        if title_lower in ['linkedin', 'indeed', 'glassdoor', 'monster', 'ziprecruiter', 'google']:
+            return False
+        
+        if any(gt in title_lower for gt in generic_titles):
             return False
         
         # Reject titles with emojis (usually not real job titles)
