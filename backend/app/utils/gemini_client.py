@@ -8,7 +8,8 @@ class GeminiClient:
     
     def __init__(self):
         genai.configure(api_key=settings.google_gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        # Use gemini-2.0-flash (latest stable, fast and efficient)
+        self.model = genai.GenerativeModel('gemini-2.0-flash')
     
     async def parse_resume(self, resume_text: str) -> Dict[str, Any]:
         """Parse resume text into structured JSON using Gemini"""

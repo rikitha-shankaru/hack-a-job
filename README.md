@@ -31,15 +31,32 @@
 
 - Python 3.11+
 - Node.js 18+
-- PostgreSQL 14+ with pgvector extension
-- Redis
+- PostgreSQL 14+ with pgvector extension (or Docker)
+- Redis (optional, for background jobs)
+
+**macOS:**
+- PostgreSQL can be installed via Homebrew or Docker
+- Docker Desktop recommended for easiest setup
+
+**Windows:**
+- PostgreSQL can be installed via installer or Docker
+- Docker Desktop recommended for easiest setup
 
 ### Backend Setup
 
+**macOS/Linux:**
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Windows:**
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 

@@ -1,5 +1,6 @@
 from playwright.async_api import async_playwright, Page
 from app.models import User, TailoredAsset, AutofillRun
+from app.utils.gemini_client import GeminiClient
 from typing import Dict, Any, List
 import base64
 import os
