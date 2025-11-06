@@ -99,51 +99,34 @@ Output only the JSON object, no other text."""
         level_target: str = None
     ) -> Dict[str, Any]:
         """Tailor resume for a specific job using Gemini AI - preserving human authenticity"""
-        prompt = f"""You are a professional resume editor helping a candidate tailor their resume for a specific job. Your goal is MINIMAL, STRATEGIC editing that preserves 90%+ of the original human-written content.
+        prompt = f"""You are helping tailor a resume. CRITICAL: Preserve 95%+ of the original text. Only reorder, don't rewrite.
 
-CRITICAL RULES FOR AUTHENTICITY:
-1. PRESERVE ORIGINAL VOICE: Keep the candidate's original writing style, phrasing, and tone. Do NOT rewrite everything. Only make strategic tweaks.
-2. MINIMAL CHANGES: Change only what's necessary. If a bullet point already works, keep it 95% the same. Only edit if it significantly improves job match.
-3. TRUTH PRESERVATION: Never invent employers, titles, dates, metrics, or achievements. Only work with what exists.
-4. STRATEGIC KEYWORD INSERTION: Naturally weave in 2-3 job-relevant keywords per section, but keep original phrasing intact.
-5. REORDERING OVER REWRITING: Prioritize reordering bullets/experiences over rewriting them. Move most relevant items first.
-6. PRESERVE METRICS: Keep all original numbers, percentages, and achievements exactly as written.
-7. NATURAL LANGUAGE: All changes must sound like a human wrote them, not AI. Avoid corporate jargon or overly polished language.
+ABSOLUTE RULES:
+1. DO NOT REWRITE: Keep original bullet points 95%+ identical. Only change 1-2 words if absolutely necessary for keyword matching.
+2. DO NOT ADD PROJECTS: Keep only the original projects. Do not invent or add new ones.
+3. DO NOT CHANGE METRICS: Keep all numbers, percentages, dates exactly as written.
+4. DO NOT CHANGE COMPANIES/TITLES: Keep all employer names and job titles exactly as written.
+5. REORDER ONLY: Move most relevant experience/projects first. Keep the exact same wording.
+6. MINIMAL KEYWORD INSERTION: Add 1-2 job keywords ONLY if they naturally fit. Don't force them.
 
-WRITING STYLE RULES (CRITICAL):
-- Use clear, simple language
-- Use short, impactful sentences
-- Use active voice. Avoid passive voice
-- Focus on practical, actionable insights
-- Use data and examples to support claims
-- Avoid em dashes anywhere. Use only commas, periods, or other standard punctuation
-- Avoid constructions like "not just this, but also this"
-- Avoid metaphors and clichés
-- Avoid generalizations
-- Avoid common setup language like "in conclusion", "in closing", etc.
-- Avoid unnecessary adjectives and adverbs
-- Avoid semicolons
-- Review your response and ensure no em dashes
+WHAT TO DO:
+- Summary: Keep 95%+ of original text. Add 1 keyword max if it fits naturally.
+- Experience: Reorder by relevance. Keep bullets 95%+ identical. Limit to 3 bullets per role.
+- Skills: Keep original skills. Add only if clearly mentioned in experience. Don't invent.
+- Projects: Keep original projects only. Reorder by relevance. Limit to 3 projects, 2 bullets each.
+- Education: Keep exactly as is.
 
-EDITING APPROACH:
-- Summary: Add 1-2 job-relevant keywords, but keep 90% of original text. Keep it concise (2-3 sentences max).
-- Experience bullets: Only modify if missing critical keywords. Keep original achievements/metrics. Limit to 2-3 most relevant bullets per role.
-- Skills: Add missing job-relevant skills IF they genuinely exist in experience. Don't fabricate.
-- Projects: You MAY add 1-2 new relevant projects that align with the job requirements. These should be realistic, feasible projects that demonstrate skills mentioned in the job description. Format: name and 2-3 bullets describing the project. Only add if it significantly strengthens the resume match.
-- Reorder: Move most relevant experience/projects first, but keep content unchanged.
-- ONE PAGE LIMIT: Ensure the resume fits on ONE page. Prioritize most relevant content. If needed, reduce bullets or combine similar points.
+ONE PAGE LIMIT: If needed, keep only top 3 experiences and top 3 projects. Don't rewrite to fit.
 
 Base Resume JSON:
 {json.dumps(base_resume_json, indent=2)}
 
 Job Description:
-{job_description}
+{job_description[:1500]}
 
-Job Keywords: {', '.join(jd_keywords)}
-Role Target: {role_target or 'N/A'}
-Level Target: {level_target or 'N/A'}
+Job Keywords: {', '.join(jd_keywords[:10])}
 
-Output ONLY valid JSON with the same structure. Preserve 90%+ of original content. Make minimal, strategic edits that sound human-written. Follow the writing style rules above."""
+Output ONLY valid JSON with the same structure. Preserve 95%+ of original text. Reorder, don't rewrite."""
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
@@ -189,55 +172,44 @@ Output ONLY valid JSON with the same structure. Preserve 90%+ of original conten
         jd_keywords: List[str]
     ) -> Dict[str, Any]:
         """Generate authentic, human-sounding cover letter using Gemini"""
-        prompt = f"""Write a professional but authentic cover letter that sounds like a real person wrote it, not AI. Use natural, conversational language while staying professional.
+        prompt = f"""Write a cover letter that sounds like a real person wrote it. Be direct, specific, and avoid corporate speak.
 
-CRITICAL RULES FOR AUTHENTICITY:
-1. HUMAN VOICE: Write like a real candidate would. Natural, genuine, not overly polished or corporate-sounding
-2. USE ACTUAL FACTS: Only reference real experiences, achievements, and skills from the resume
-3. SPECIFIC EXAMPLES: Reference specific projects, metrics, or experiences from the resume
-4. CONVERSATIONAL TONE: Sound like you're talking to a hiring manager, not a robot
-5. AVOID CLICHÉS: No "I'm excited to apply" or "I'm the perfect candidate". Be genuine
-6. SHOW, DON'T TELL: Use specific examples from resume rather than generic statements
+CRITICAL RULES:
+1. SOUND HUMAN: Write like you're emailing a hiring manager directly. Casual but professional.
+2. NO CLICHÉS: Avoid "excited to apply", "perfect candidate", "passionate about", "thrilled", "eager". Just be direct.
+3. USE REAL FACTS: Only reference actual projects, companies, and metrics from the resume.
+4. BE SPECIFIC: Name actual projects, companies, technologies. Don't use vague statements.
+5. SHORT SENTENCES: Keep sentences under 20 words. Be clear and direct.
+6. NO FLUFF: Cut unnecessary words. Get to the point.
 
-WRITING STYLE RULES (CRITICAL):
-- Use clear, simple language
-- Use short, impactful sentences
-- Use active voice. Avoid passive voice
-- Focus on practical, actionable insights
-- Use data and examples to support claims
-- Avoid em dashes anywhere. Use only commas, periods, or other standard punctuation
-- Avoid constructions like "not just this, but also this"
-- Avoid metaphors and clichés
-- Avoid generalizations
-- Avoid common setup language like "in conclusion", "in closing", etc.
-- Avoid unnecessary adjectives and adverbs
-- Avoid semicolons
-- Review your response and ensure no em dashes
+WHAT TO AVOID:
+- Corporate jargon ("leverage", "synergy", "utilize")
+- Overly formal language ("I am writing to express my interest")
+- Generic statements ("I have experience in software development")
+- Exclamation points
+- Em dashes
+- Semicolons
 
-STRUCTURE:
-- Opening (2-3 sentences): Reference the specific role/company naturally. Mention why you're interested. Be specific, not generic.
-- Three mapping bullets: Connect your REAL achievements from resume to job requirements. Use actual metrics/projects.
-- Closing (2-3 sentences): Professional but warm closing. Mention availability naturally.
-
-Keep it 200-300 words total. Sound human, not AI-generated.
+STRUCTURE (200-250 words total):
+- Opening (2 sentences): "I saw the [Role] position at [Company]. [One specific reason why it's interesting]."
+- Three bullets: Each connects a REAL achievement from resume to job requirement. Use actual project names, companies, metrics.
+- Closing (2 sentences): "I'd like to discuss how my experience can help [Company]. I'm available to talk this week."
 
 Resume JSON:
 {json.dumps(resume_json, indent=2)}
 
 Company: {company}
 Job Description:
-{job_description[:1000]}
+{job_description[:800]}
 
-Job Keywords: {', '.join(jd_keywords)}
-
-Output JSON with this structure:
+Output JSON:
 {{
-  "opening": "string (2-3 sentences, max 400 chars, natural and specific)",
-  "mapping": ["bullet 1 (specific achievement from resume)", "bullet 2 (specific achievement)", "bullet 3 (specific achievement)"],
-  "closing": "string (2-3 sentences, max 300 chars, warm and professional)"
+  "opening": "2 sentences, max 200 chars, direct and specific",
+  "mapping": ["bullet 1 with actual project/company name", "bullet 2 with actual project/company name", "bullet 3 with actual project/company name"],
+  "closing": "2 sentences, max 150 chars, direct and professional"
 }}
 
-Write like a real person would. Authentic, specific, and genuine. Follow the writing style rules above."""
+Write like a real person, not AI. Be direct, specific, and genuine."""
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
@@ -483,7 +455,7 @@ Answer:"""
         base: Dict[str, Any],
         tailored: Dict[str, Any]
     ):
-        """Validate that tailored resume doesn't invent facts"""
+        """Validate that tailored resume doesn't invent facts - STRICT validation"""
         # Handle empty experience lists
         base_experience = base.get("experience", [])
         tailored_experience = tailored.get("experience", [])
