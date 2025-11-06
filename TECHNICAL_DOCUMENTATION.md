@@ -775,27 +775,30 @@ const apiClient = axios.create({
 4. User tailors resume (/jobs/[id]/tailor)
    → User clicks "Generate AI-Tailored Resume & Cover Letter"
    → POST /api/tailor { userId, jobId }
-   → Backend: Google CSE → Parse → Filter → Store → Return
-   → Response: { jobs: [...] }
-   → Frontend: Display job cards
-
-4. User selects job → Clicks "Tailor"
-   → POST /api/tailor { userId, jobId }
    → Backend: Gemini tailoring → LaTeX → PDF → Store
-   → Response: { assetsId, resumePdfUrl, coverPdfUrl, diffs }
-   → Frontend: Display tailored resume, cover letter, AI insights
+   → Response: { assetsId, originalResumePdfUrl, resumePdfUrl, coverPdfUrl, diffs }
+   → Frontend: Display preview tabs (original, tailored, cover letter)
+   → Frontend: Show AI insights (match score, explanations, recommendations)
 
-5. User clicks "Run Complete Workflow"
+5. User chooses apply option:
+   
+   Option A: Manual Application
+   → User downloads tailored resume and cover letter PDFs
+   → User clicks "View Job Posting" → Opens job URL in new tab
+   → User manually applies using downloaded documents
+   
+   Option B: AI Autofill Application
+   → User clicks "Start AI Autofill"
    → POST /api/tailor/complete { userId, jobId }
    → Backend: LangGraph workflow
-     - Tailor resume
-     - Generate cover letter
-     - Autofill application (Playwright)
+     - Tailor resume (if not already done)
+     - Generate cover letter (if not already done)
+     - Autofill application (Playwright + Gemini)
      - Send verification email
    → Response: { verification_url }
-   → Frontend: Show success message
+   → Frontend: Redirect to verification page
 
-6. User receives email
+6. User receives email (if autofill chosen)
    → Email contains verification link
    → User clicks link → Opens prefilled application form
    → User reviews → Submits application
