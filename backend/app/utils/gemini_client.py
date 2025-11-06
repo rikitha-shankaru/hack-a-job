@@ -65,7 +65,15 @@ Output only the JSON object, no other text."""
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
+        
+        # Validate response exists
+        if not response or not hasattr(response, 'text'):
+            raise ValueError("Empty response from Gemini API")
+        
         result_text = response.text.strip()
+        
+        if not result_text:
+            raise ValueError("Empty response text from Gemini API")
         
         # Clean up response (remove markdown code blocks if present)
         if result_text.startswith("```json"):
@@ -76,7 +84,11 @@ Output only the JSON object, no other text."""
             result_text = result_text[:-3]
         result_text = result_text.strip()
         
-        return json.loads(result_text)
+        # Parse JSON with error handling
+        try:
+            return json.loads(result_text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
     
     async def tailor_resume(
         self,
@@ -133,7 +145,15 @@ Output ONLY valid JSON with the same structure. Preserve 90%+ of original conten
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
+        
+        # Validate response exists
+        if not response or not hasattr(response, 'text'):
+            raise ValueError("Empty response from Gemini API")
+        
         result_text = response.text.strip()
+        
+        if not result_text:
+            raise ValueError("Empty response text from Gemini API")
         
         # Clean up response
         if result_text.startswith("```json"):
@@ -144,7 +164,15 @@ Output ONLY valid JSON with the same structure. Preserve 90%+ of original conten
             result_text = result_text[:-3]
         result_text = result_text.strip()
         
-        result = json.loads(result_text)
+        # Parse JSON with error handling
+        try:
+            result = json.loads(result_text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
+        
+        # Validate result structure
+        if not isinstance(result, dict):
+            raise ValueError(f"Invalid resume structure returned from Gemini API. Expected dict, got {type(result)}")
         
         # Validate no fabrication
         self._validate_no_fabrication(base_resume_json, result)
@@ -211,7 +239,15 @@ Write like a real person would. Authentic, specific, and genuine. Follow the wri
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
+        
+        # Validate response exists
+        if not response or not hasattr(response, 'text'):
+            raise ValueError("Empty response from Gemini API")
+        
         result_text = response.text.strip()
+        
+        if not result_text:
+            raise ValueError("Empty response text from Gemini API")
         
         # Clean up response
         if result_text.startswith("```json"):
@@ -222,7 +258,11 @@ Write like a real person would. Authentic, specific, and genuine. Follow the wri
             result_text = result_text[:-3]
         result_text = result_text.strip()
         
-        return json.loads(result_text)
+        # Parse JSON with error handling
+        try:
+            return json.loads(result_text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
     
     async def generate_ai_explanation(
         self,
@@ -279,7 +319,15 @@ Example: {{"recommendations": ["Add keyword X to skills section", "Emphasize Y e
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
+        
+        # Validate response exists
+        if not response or not hasattr(response, 'text'):
+            raise ValueError("Empty response from Gemini API")
+        
         result_text = response.text.strip()
+        
+        if not result_text:
+            raise ValueError("Empty response text from Gemini API")
         
         # Clean up
         if result_text.startswith("```json"):
@@ -290,7 +338,15 @@ Example: {{"recommendations": ["Add keyword X to skills section", "Emphasize Y e
             result_text = result_text[:-3]
         result_text = result_text.strip()
         
-        result = json.loads(result_text)
+        # Parse JSON with error handling
+        try:
+            result = json.loads(result_text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
+        
+        if not isinstance(result, dict):
+            return []
+        
         return result.get("recommendations", [])
     
     async def calculate_job_match_score(
@@ -321,7 +377,15 @@ Be objective and thorough."""
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
+        
+        # Validate response exists
+        if not response or not hasattr(response, 'text'):
+            raise ValueError("Empty response from Gemini API")
+        
         result_text = response.text.strip()
+        
+        if not result_text:
+            raise ValueError("Empty response text from Gemini API")
         
         # Clean up
         if result_text.startswith("```json"):
@@ -332,7 +396,11 @@ Be objective and thorough."""
             result_text = result_text[:-3]
         result_text = result_text.strip()
         
-        return json.loads(result_text)
+        # Parse JSON with error handling
+        try:
+            return json.loads(result_text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
     
     async def answer_application_question(
         self,
@@ -404,14 +472,30 @@ Answer:"""
         tailored: Dict[str, Any]
     ):
         """Validate that tailored resume doesn't invent facts"""
-        base_companies = {exp.get("company") for exp in base.get("experience", [])}
-        base_titles = {exp.get("title") for exp in base.get("experience", [])}
+        # Handle empty experience lists
+        base_experience = base.get("experience", [])
+        tailored_experience = tailored.get("experience", [])
         
-        tailored_companies = {exp.get("company") for exp in tailored.get("experience", [])}
-        tailored_titles = {exp.get("title") for exp in tailored.get("experience", [])}
+        if not base_experience and tailored_experience:
+            raise ValueError("Cannot add experience when base resume has none")
         
-        if tailored_companies - base_companies:
-            raise ValueError("Cannot add new companies to resume")
-        if tailored_titles - base_titles:
-            raise ValueError("Cannot add new titles to resume")
+        if not isinstance(base_experience, list) or not isinstance(tailored_experience, list):
+            raise ValueError("Experience must be a list")
+        
+        # Extract companies and titles, filtering out None values
+        base_companies = {exp.get("company") for exp in base_experience if exp.get("company")}
+        base_titles = {exp.get("title") for exp in base_experience if exp.get("title")}
+        
+        tailored_companies = {exp.get("company") for exp in tailored_experience if exp.get("company")}
+        tailored_titles = {exp.get("title") for exp in tailored_experience if exp.get("title")}
+        
+        # Check for new companies (excluding None/empty strings)
+        new_companies = tailored_companies - base_companies
+        if new_companies:
+            raise ValueError(f"Cannot add new companies to resume: {new_companies}")
+        
+        # Check for new titles (excluding None/empty strings)
+        new_titles = tailored_titles - base_titles
+        if new_titles:
+            raise ValueError(f"Cannot add new titles to resume: {new_titles}")
 

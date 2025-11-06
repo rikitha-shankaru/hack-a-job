@@ -24,7 +24,21 @@ class TailorService:
         db: Session
     ) -> TailoredAsset:
         """Generate tailored resume and cover letter for a job"""
+        # Validate required data exists
+        if not user.profile:
+            raise ValueError("User profile not found. Please ingest resume first.")
+        
         base_resume_json = user.profile.resume_json
+        if not base_resume_json:
+            raise ValueError("Resume JSON not found. Please ingest resume first.")
+        
+        if not isinstance(base_resume_json, dict):
+            raise ValueError("Invalid resume JSON format. Please re-upload your resume.")
+        
+        # Validate resume has required fields
+        if not base_resume_json.get("experience") and not base_resume_json.get("skills"):
+            raise ValueError("Resume is missing required fields (experience or skills). Please re-upload your resume.")
+        
         job_description = job.jd_text or ""
         jd_keywords = job.jd_keywords or []
         
@@ -157,13 +171,24 @@ class TailorService:
     
     def _store_pdf(self, pdf_path: str, filename: str) -> str:
         """Store PDF and return URL (simplified - in production use S3)"""
+        # Validate input
+        if not pdf_path or not filename:
+            raise ValueError("PDF path and filename are required")
+        
+        # Check if source file exists
+        if not os.path.exists(pdf_path):
+            raise FileNotFoundError(f"Source PDF file not found: {pdf_path}")
+        
         # For MVP, store in uploads directory
         uploads_dir = "uploads/pdfs"
         os.makedirs(uploads_dir, exist_ok=True)
         
         dest_path = os.path.join(uploads_dir, filename)
         import shutil
-        shutil.copy2(pdf_path, dest_path)
+        try:
+            shutil.copy2(pdf_path, dest_path)
+        except Exception as e:
+            raise RuntimeError(f"Failed to copy PDF file: {str(e)}")
         
         # Return relative URL (in production, return S3 URL)
         return f"/uploads/pdfs/{filename}"
