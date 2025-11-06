@@ -31,7 +31,8 @@ async def search_jobs(
         cache_key = _get_cache_key(request.query, request.location or "", request.recency or "w2")
         if cache_key in _job_cache:
             cached_data, cached_time = _job_cache[cache_key]
-            if (date.today() - cached_time) < _cache_ttl:
+            time_diff = date.today() - cached_time
+            if time_diff < _cache_ttl:
                 return cached_data
         
         service = JobService()

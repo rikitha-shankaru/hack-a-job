@@ -153,14 +153,14 @@ export default function JobsPage() {
     }
   };
 
-  const handleAutoSearch = (searchData: { query: string; location: string; recency: string }) => {
+  const handleAutoSearch = useCallback((searchData: { query: string; location: string; recency: string }) => {
     performSearch(searchData);
-  };
+  }, [performSearch]);
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     performSearch(searchForm);
-  };
+  }, [searchForm, performSearch]);
 
   const handleTailor = async (jobId: string) => {
     setTailoringJobId(jobId);
