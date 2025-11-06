@@ -46,3 +46,13 @@ logs/
 uploads/
 temp/
 
+# Personal documents - DO NOT COMMIT
+*.pdf
+*.PDF
+**/resume*.pdf
+**/cover*.pdf
+**/*_resume.pdf
+**/*_cover.pdf
+**/resumes/
+**/pdfs/
+
