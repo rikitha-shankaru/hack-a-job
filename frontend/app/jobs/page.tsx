@@ -162,13 +162,13 @@ export default function JobsPage() {
     performSearch(searchForm);
   }, [searchForm, performSearch]);
 
-  const handleTailor = async (jobId: string) => {
+  const handleTailor = useCallback(async (jobId: string) => {
     setTailoringJobId(jobId);
-    setError({ ...error, [jobId]: '' });
+    setError(prev => ({ ...prev, [jobId]: '' }));
     
     const userId = localStorage.getItem('userId');
     if (!userId) {
-      setError({ ...error, [jobId]: 'Please upload your resume first' });
+      setError(prev => ({ ...prev, [jobId]: 'Please upload your resume first' }));
       setTailoringJobId(null);
       return;
     }
@@ -178,10 +178,10 @@ export default function JobsPage() {
         userId,
         jobId,
       });
-      setTailoredAssets({ ...tailoredAssets, [jobId]: response.data });
-      setActiveTab({ ...activeTab, [jobId]: 'tailored' });
+      setTailoredAssets(prev => ({ ...prev, [jobId]: response.data }));
+      setActiveTab(prev => ({ ...prev, [jobId]: 'tailored' }));
     } catch (err: any) {
-      setError({ ...error, [jobId]: err.response?.data?.detail || 'Failed to tailor resume' });
+      setError(prev => ({ ...prev, [jobId]: err.response?.data?.detail || 'Failed to tailor resume' }));
     } finally {
       setTailoringJobId(null);
     }
@@ -289,8 +289,8 @@ export default function JobsPage() {
         </form>
 
         {memoizedJobs.length > 0 && (
-          <div className="mb-6 text-gray-700 text-xl font-semibold">
-            Found <span className="text-purple-600">{memoizedJobs.length}</span> job{memoizedJobs.length !== 1 ? 's' : ''}
+          <div className="mb-6 text-gray-700 text-xl font-semibold animate-fade-in-up">
+            Found <span className="gradient-text font-bold">{memoizedJobs.length}</span> job{memoizedJobs.length !== 1 ? 's' : ''}
           </div>
         )}
 
@@ -364,7 +364,7 @@ export default function JobsPage() {
                         href={job.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-4 py-2 border-2 border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 font-semibold text-center transition-all"
+                        className="px-4 py-2 border-2 border-purple-300 text-purple-700 rounded-xl hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 font-semibold text-center transition-all hover-lift hover-glow"
                       >
                         View Job Details
                       </a>

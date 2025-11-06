@@ -1,21 +1,21 @@
 export function JobCardSkeleton() {
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-purple-100 p-6 animate-pulse">
+    <div className="glass bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-purple-200/50 p-6 animate-pulse">
       <div className="flex justify-between items-start gap-4">
         <div className="flex-1">
-          <div className="h-7 bg-gray-200 rounded w-3/4 mb-3"></div>
-          <div className="h-5 bg-gray-200 rounded w-1/2 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-7 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded w-3/4 mb-3 animate-shimmer"></div>
+          <div className="h-5 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded w-1/2 mb-2 animate-shimmer"></div>
+          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded w-1/3 mb-2 animate-shimmer"></div>
+          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded w-1/4 mb-4 animate-shimmer"></div>
           <div className="flex gap-2 mb-2">
-            <div className="h-6 bg-gray-200 rounded-full w-20"></div>
-            <div className="h-6 bg-gray-200 rounded-full w-24"></div>
-            <div className="h-6 bg-gray-200 rounded-full w-16"></div>
+            <div className="h-6 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-full w-20 animate-shimmer"></div>
+            <div className="h-6 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-full w-24 animate-shimmer"></div>
+            <div className="h-6 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-full w-16 animate-shimmer"></div>
           </div>
         </div>
         <div className="flex flex-col gap-2 min-w-[200px]">
-          <div className="h-10 bg-gray-200 rounded-lg"></div>
-          <div className="h-10 bg-gray-200 rounded-lg"></div>
+          <div className="h-10 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-xl animate-shimmer"></div>
+          <div className="h-10 bg-gradient-to-r from-purple-200 via-indigo-200 to-purple-200 rounded-xl animate-shimmer"></div>
         </div>
       </div>
     </div>
