@@ -135,15 +135,58 @@ class JobParser:
         """Parse date string to date object"""
         if not date_str:
             return None
-        try:
-            # Try ISO format
-            return datetime.fromisoformat(date_str.replace('Z', '+00:00')).date()
-        except:
+        
+        from datetime import date as date_type
+        
+        # Common date formats to try
+        date_formats = [
+            "%Y-%m-%d",  # ISO format: 2024-10-26
+            "%Y/%m/%d",  # Slash format: 2024/10/26
+            "%m/%d/%Y",  # US format: 10/26/2024
+            "%d/%m/%Y",  # European format: 26/10/2024
+            "%Y-%m-%dT%H:%M:%S",  # ISO with time
+            "%Y-%m-%dT%H:%M:%SZ",  # ISO with time and Z
+        ]
+        
+        # Clean the date string
+        date_str = date_str.strip()
+        
+        # Remove timezone info if present
+        if 'T' in date_str:
+            date_str = date_str.split('T')[0]
+        if '+' in date_str:
+            date_str = date_str.split('+')[0]
+        if 'Z' in date_str:
+            date_str = date_str.replace('Z', '')
+        
+        # Try parsing with different formats
+        for fmt in date_formats:
             try:
-                # Try other formats
-                return datetime.strptime(date_str, "%Y-%m-%d").date()
-            except:
+                parsed_date = datetime.strptime(date_str, fmt).date()
+                # Validate: reject future dates (parsing errors)
+                today = date_type.today()
+                if parsed_date > today:
+                    # This is likely a parsing error (e.g., MM/DD/YYYY vs DD/MM/YYYY confusion)
+                    # Or the date is actually in the future (unlikely for job postings)
+                    print(f"Warning: Parsed future date {parsed_date} from '{date_str}' - rejecting")
+                    return None
+                return parsed_date
+            except ValueError:
+                continue
+        
+        # Try ISO format with timezone handling
+        try:
+            parsed = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            parsed_date = parsed.date()
+            today = date_type.today()
+            if parsed_date > today:
+                print(f"Warning: Parsed future date {parsed_date} from '{date_str}' - rejecting")
                 return None
+            return parsed_date
+        except:
+            pass
+        
+        return None
     
     def _extract_salary(self, jsonld_data: Dict) -> Optional[Dict[str, Any]]:
         """Extract salary information"""

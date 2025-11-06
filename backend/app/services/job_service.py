@@ -20,15 +20,18 @@ class JobService:
         db: Session
     ) -> List[Job]:
         """Search jobs using Google Custom Search API and store them"""
-        # Build search query - target job postings specifically
-        # Use job-specific keywords to filter to actual job postings
-        search_query = f'"{query}" (job OR "careers" OR "hiring" OR "apply now" OR "we are hiring" OR "open position" OR "job posting")'
+        # Build search query similar to Google's natural search
+        # Focus on actual job postings, not career pages
+        search_query = f'{query} jobs'
         if location:
-            search_query += f' "{location}"'
+            search_query += f' in {location}'
         
-        # Add job board sites to prioritize (Google CSE will weight these)
-        job_board_domains = 'linkedin.com/jobs OR indeed.com OR glassdoor.com OR greenhouse.io OR lever.co OR monster.com OR ziprecruiter.com OR careers. OR jobs.'
-        search_query = f"{search_query} ({job_board_domains})"
+        # Add site restrictions to focus on job boards (but don't force OR which can cause issues)
+        # Use site: operator for better results
+        site_restrictions = 'site:linkedin.com/jobs OR site:indeed.com OR site:glassdoor.com OR site:greenhouse.io OR site:lever.co OR site:monster.com OR site:ziprecruiter.com'
+        
+        # Combine query with site restrictions
+        search_query = f"{search_query} ({site_restrictions})"
         
         # Map recency to Google CSE dateRestrict format
         date_mapping = {
@@ -218,10 +221,13 @@ class JobService:
             'alliance française', 'the university of chicago', 'chicago blackhawks',
             'chicago bulls', 'white sox', 'abc7chicago', 'fox32chicago',
             'motorola solutions jobs', 'women in tech', 'big red bulletin',
-            'test lead (aws cloud migration)'  # This might be a duplicate/expired listing
+            'test lead (aws cloud migration)',  # This might be a duplicate/expired listing
+            'jobs jobs found', 'jobs found', 'jobs jobs',  # Generic search result pages
+            'powered by people', 'qualcomm careers', 'engineering jobs and more',
+            'careers |', 'careers page', 'all jobs', 'view all jobs'
         ]
         
-        if any(gt in title for gt in generic_titles):
+        if any(gt in title.lower() for gt in generic_titles):
             return False
         
         # Reject titles with emojis (usually not real job titles)
@@ -236,6 +242,15 @@ class JobService:
         
         # Title should look like a job title (not just company name + "jobs")
         if title.endswith(' jobs') and len(title_words) <= 3:
+            return False
+        
+        # Reject titles that are clearly career pages, not job postings
+        career_page_indicators = [
+            'careers |', 'careers page', 'all jobs', 'view all jobs',
+            'jobs and more', 'engineering jobs and more', 'find jobs',
+            'search jobs', 'browse jobs', 'job search'
+        ]
+        if any(indicator in title for indicator in career_page_indicators):
             return False
         
         # Must have company OR job description
@@ -262,17 +277,15 @@ class JobService:
                 if not any(board in url for board in known_job_boards):
                     return False
         
-        # Check for future dates (likely parsing errors)
+        # Check for future dates (likely parsing errors) - reject ALL future dates
         date_posted = job_data.get("date_posted")
         if date_posted:
             from datetime import date
             today = date.today()
             if date_posted > today:
-                # Future date is suspicious - might be bad parsing
-                # Only reject if it's way in the future (more than 7 days)
-                from datetime import timedelta
-                if date_posted > today + timedelta(days=7):
-                    return False
+                # Future date is definitely a parsing error - reject it
+                print(f"Rejecting job with future date: {date_posted} (today: {today})")
+                return False
         
         return True
 
