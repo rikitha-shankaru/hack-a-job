@@ -83,10 +83,12 @@ export default function Home() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      localStorage.setItem('userId', response.data.userId);
-      localStorage.setItem('targetRole', formData.targetRole);
-      localStorage.setItem('location', formData.location);
-      localStorage.setItem('recency', formData.recency);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('userId', response.data.userId);
+        localStorage.setItem('targetRole', formData.targetRole);
+        localStorage.setItem('location', formData.location);
+        localStorage.setItem('recency', formData.recency);
+      }
 
       // Redirect to jobs page with auto-search
       router.push(`/jobs?autoSearch=true&query=${encodeURIComponent(formData.targetRole)}&location=${encodeURIComponent(formData.location)}&recency=${formData.recency}`);

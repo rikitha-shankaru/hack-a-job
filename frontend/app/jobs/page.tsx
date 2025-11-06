@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import apiClient from '@/lib/api';
 import Link from 'next/link';
@@ -26,7 +26,7 @@ interface TailoredAssets {
   diffs?: any;
 }
 
-export default function JobsPage() {
+function JobsPageContent() {
   const searchParams = useSearchParams();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,6 +45,8 @@ export default function JobsPage() {
   // Restore jobs and search form on mount (only once)
   useEffect(() => {
     // Check if we already have jobs in localStorage (from previous search)
+    if (typeof window === 'undefined') return;
+    
     const savedJobs = localStorage.getItem('jobs');
     const savedSearch = localStorage.getItem('lastSearch');
     
@@ -137,9 +139,11 @@ export default function JobsPage() {
       
       setJobs(response.data.jobs);
       // Store jobs in localStorage for persistence across navigation
-      localStorage.setItem('jobs', JSON.stringify(response.data.jobs));
-      // Also store search params for restoring form
-      localStorage.setItem('lastSearch', JSON.stringify(searchData));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('jobs', JSON.stringify(response.data.jobs));
+        // Also store search params for restoring form
+        localStorage.setItem('lastSearch', JSON.stringify(searchData));
+      }
       
       setTimeout(() => {
         setProgress(0);
@@ -166,6 +170,8 @@ export default function JobsPage() {
   const handleTailor = useCallback(async (jobId: string) => {
     setTailoringJobId(jobId);
     setError(prev => ({ ...prev, [jobId]: '' }));
+    
+    if (typeof window === 'undefined') return;
     
     const userId = localStorage.getItem('userId');
     if (!userId) {
@@ -558,5 +564,20 @@ export default function JobsPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function JobsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 py-12 px-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="spinner w-12 h-12 border-4 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <JobsPageContent />
+    </Suspense>
   );
 }
