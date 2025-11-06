@@ -22,7 +22,7 @@ class OpenAIClient:
         level_target: str = None
     ) -> Dict[str, Any]:
         """Tailor resume for a specific job using OpenAI - preserving human authenticity"""
-               prompt = f"""You are helping tailor a resume. CRITICAL: Preserve 95%+ of the original text. Only reorder, don't rewrite.
+        prompt = f"""You are helping tailor a resume. CRITICAL: Preserve 95%+ of the original text. Only reorder, don't rewrite.
 
 ABSOLUTE RULES:
 1. DO NOT REWRITE: Keep original bullet points 95%+ identical. Only change 1-2 words if absolutely necessary for keyword matching.
