@@ -42,68 +42,6 @@ function JobsPageContent() {
   const [activeTab, setActiveTab] = useState<Record<string, 'original' | 'tailored' | 'cover'>>({});
   const [error, setError] = useState<Record<string, string>>({});
 
-  // Restore jobs and search form on mount (only once)
-  useEffect(() => {
-    // Check if we already have jobs in localStorage (from previous search)
-    if (typeof window === 'undefined') return;
-    
-    const savedJobs = localStorage.getItem('jobs');
-    const savedSearch = localStorage.getItem('lastSearch');
-    
-    if (savedJobs) {
-      try {
-        const parsedJobs = JSON.parse(savedJobs);
-        if (parsedJobs && parsedJobs.length > 0) {
-          // Restore jobs from localStorage instead of searching again
-          setJobs(parsedJobs);
-          
-          // Restore search form from saved search or URL params
-          if (savedSearch) {
-            try {
-              const parsedSearch = JSON.parse(savedSearch);
-              setSearchForm({
-                query: parsedSearch.query || '',
-                location: parsedSearch.location || '',
-                recency: parsedSearch.recency || 'w2',
-              });
-            } catch (e) {
-              // Fallback to URL params
-              const query = searchParams.get('query') || '';
-              const location = searchParams.get('location') || '';
-              const recency = searchParams.get('recency') || 'w2';
-              setSearchForm({ query, location, recency });
-            }
-          } else {
-            // Use URL params if no saved search
-            const query = searchParams.get('query') || '';
-            const location = searchParams.get('location') || '';
-            const recency = searchParams.get('recency') || 'w2';
-            setSearchForm({ query, location, recency });
-          }
-          
-          return; // Don't trigger new search if we have saved jobs
-        }
-      } catch (e) {
-        console.error('Failed to parse saved jobs:', e);
-      }
-    }
-
-    // Only auto-search if we don't have saved jobs
-    const autoSearch = searchParams.get('autoSearch');
-    const query = searchParams.get('query') || '';
-    const location = searchParams.get('location') || '';
-    const recency = searchParams.get('recency') || 'w2';
-
-    if (autoSearch === 'true' && query) {
-      setSearchForm({
-        query,
-        location,
-        recency,
-      });
-      handleAutoSearch({ query, location, recency });
-    }
-  }, []); // Empty dependency array - only run once on mount
-
   const performSearch = useCallback(async (searchData: { query: string; location: string; recency: string }) => {
     setLoading(true);
     setProgress(0);
@@ -161,6 +99,68 @@ function JobsPageContent() {
   const handleAutoSearch = useCallback((searchData: { query: string; location: string; recency: string }) => {
     performSearch(searchData);
   }, [performSearch]);
+
+  // Define handleAutoSearch before useEffect that uses it
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Check if we already have jobs in localStorage (from previous search)
+    const savedJobs = localStorage.getItem('jobs');
+    const savedSearch = localStorage.getItem('lastSearch');
+    
+    if (savedJobs) {
+      try {
+        const parsedJobs = JSON.parse(savedJobs);
+        if (parsedJobs && parsedJobs.length > 0) {
+          // Restore jobs from localStorage instead of searching again
+          setJobs(parsedJobs);
+          
+          // Restore search form from saved search or URL params
+          if (savedSearch) {
+            try {
+              const parsedSearch = JSON.parse(savedSearch);
+              setSearchForm({
+                query: parsedSearch.query || '',
+                location: parsedSearch.location || '',
+                recency: parsedSearch.recency || 'w2',
+              });
+            } catch (e) {
+              // Fallback to URL params
+              const query = searchParams.get('query') || '';
+              const location = searchParams.get('location') || '';
+              const recency = searchParams.get('recency') || 'w2';
+              setSearchForm({ query, location, recency });
+            }
+          } else {
+            // Use URL params if no saved search
+            const query = searchParams.get('query') || '';
+            const location = searchParams.get('location') || '';
+            const recency = searchParams.get('recency') || 'w2';
+            setSearchForm({ query, location, recency });
+          }
+          
+          return; // Don't trigger new search if we have saved jobs
+        }
+      } catch (e) {
+        console.error('Failed to parse saved jobs:', e);
+      }
+    }
+
+    // Only auto-search if we don't have saved jobs
+    const autoSearch = searchParams.get('autoSearch');
+    const query = searchParams.get('query') || '';
+    const location = searchParams.get('location') || '';
+    const recency = searchParams.get('recency') || 'w2';
+
+    if (autoSearch === 'true' && query) {
+      setSearchForm({
+        query,
+        location,
+        recency,
+      });
+      handleAutoSearch({ query, location, recency });
+    }
+  }, [searchParams, handleAutoSearch]);
 
   const handleSearch = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
