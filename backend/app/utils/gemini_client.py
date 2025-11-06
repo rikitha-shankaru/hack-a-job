@@ -303,7 +303,8 @@ Provide a concise, professional answer (1-3 sentences) that:
 
 Answer:"""
         
-        response = self.model.generate_content(prompt)
+        # Add retry logic for rate limiting
+        response = await self._generate_with_retry(prompt)
         return response.text.strip()
     
     async def generate_embedding(self, text: str) -> List[float]:
