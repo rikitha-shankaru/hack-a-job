@@ -90,13 +90,28 @@ Output only the JSON object, no other text."""
         prompt = f"""You are a professional resume editor helping a candidate tailor their resume for a specific job. Your goal is MINIMAL, STRATEGIC editing that preserves 90%+ of the original human-written content.
 
 CRITICAL RULES FOR AUTHENTICITY:
-1. PRESERVE ORIGINAL VOICE: Keep the candidate's original writing style, phrasing, and tone. Do NOT rewrite everything - only make strategic tweaks.
+1. PRESERVE ORIGINAL VOICE: Keep the candidate's original writing style, phrasing, and tone. Do NOT rewrite everything. Only make strategic tweaks.
 2. MINIMAL CHANGES: Change only what's necessary. If a bullet point already works, keep it 95% the same. Only edit if it significantly improves job match.
 3. TRUTH PRESERVATION: Never invent employers, titles, dates, metrics, or achievements. Only work with what exists.
 4. STRATEGIC KEYWORD INSERTION: Naturally weave in 2-3 job-relevant keywords per section, but keep original phrasing intact.
 5. REORDERING OVER REWRITING: Prioritize reordering bullets/experiences over rewriting them. Move most relevant items first.
 6. PRESERVE METRICS: Keep all original numbers, percentages, and achievements exactly as written.
 7. NATURAL LANGUAGE: All changes must sound like a human wrote them, not AI. Avoid corporate jargon or overly polished language.
+
+WRITING STYLE RULES (CRITICAL):
+- Use clear, simple language
+- Use short, impactful sentences
+- Use active voice. Avoid passive voice
+- Focus on practical, actionable insights
+- Use data and examples to support claims
+- Avoid em dashes anywhere. Use only commas, periods, or other standard punctuation
+- Avoid constructions like "not just this, but also this"
+- Avoid metaphors and clichés
+- Avoid generalizations
+- Avoid common setup language like "in conclusion", "in closing", etc.
+- Avoid unnecessary adjectives and adverbs
+- Avoid semicolons
+- Review your response and ensure no em dashes
 
 EDITING APPROACH:
 - Summary: Add 1-2 job-relevant keywords, but keep 90% of original text
@@ -114,7 +129,7 @@ Job Keywords: {', '.join(jd_keywords)}
 Role Target: {role_target or 'N/A'}
 Level Target: {level_target or 'N/A'}
 
-Output ONLY valid JSON with the same structure. Preserve 90%+ of original content. Make minimal, strategic edits that sound human-written."""
+Output ONLY valid JSON with the same structure. Preserve 90%+ of original content. Make minimal, strategic edits that sound human-written. Follow the writing style rules above."""
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
@@ -147,15 +162,30 @@ Output ONLY valid JSON with the same structure. Preserve 90%+ of original conten
         prompt = f"""Write a professional but authentic cover letter that sounds like a real person wrote it, not AI. Use natural, conversational language while staying professional.
 
 CRITICAL RULES FOR AUTHENTICITY:
-1. HUMAN VOICE: Write like a real candidate would - natural, genuine, not overly polished or corporate-sounding
+1. HUMAN VOICE: Write like a real candidate would. Natural, genuine, not overly polished or corporate-sounding
 2. USE ACTUAL FACTS: Only reference real experiences, achievements, and skills from the resume
 3. SPECIFIC EXAMPLES: Reference specific projects, metrics, or experiences from the resume
 4. CONVERSATIONAL TONE: Sound like you're talking to a hiring manager, not a robot
-5. AVOID CLICHÉS: No "I'm excited to apply" or "I'm the perfect candidate" - be genuine
+5. AVOID CLICHÉS: No "I'm excited to apply" or "I'm the perfect candidate". Be genuine
 6. SHOW, DON'T TELL: Use specific examples from resume rather than generic statements
 
+WRITING STYLE RULES (CRITICAL):
+- Use clear, simple language
+- Use short, impactful sentences
+- Use active voice. Avoid passive voice
+- Focus on practical, actionable insights
+- Use data and examples to support claims
+- Avoid em dashes anywhere. Use only commas, periods, or other standard punctuation
+- Avoid constructions like "not just this, but also this"
+- Avoid metaphors and clichés
+- Avoid generalizations
+- Avoid common setup language like "in conclusion", "in closing", etc.
+- Avoid unnecessary adjectives and adverbs
+- Avoid semicolons
+- Review your response and ensure no em dashes
+
 STRUCTURE:
-- Opening (2-3 sentences): Reference the specific role/company naturally. Mention why you're interested (be specific, not generic).
+- Opening (2-3 sentences): Reference the specific role/company naturally. Mention why you're interested. Be specific, not generic.
 - Three mapping bullets: Connect your REAL achievements from resume to job requirements. Use actual metrics/projects.
 - Closing (2-3 sentences): Professional but warm closing. Mention availability naturally.
 
@@ -177,7 +207,7 @@ Output JSON with this structure:
   "closing": "string (2-3 sentences, max 300 chars, warm and professional)"
 }}
 
-Write like a real person would - authentic, specific, and genuine."""
+Write like a real person would. Authentic, specific, and genuine. Follow the writing style rules above."""
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
