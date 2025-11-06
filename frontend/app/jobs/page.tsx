@@ -94,7 +94,7 @@ function JobsPageContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleAutoSearch = useCallback((searchData: { query: string; location: string; recency: string }) => {
     performSearch(searchData);
