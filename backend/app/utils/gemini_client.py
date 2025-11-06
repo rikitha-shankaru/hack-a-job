@@ -318,6 +318,29 @@ Answer:"""
         hash_int = int(hash_obj.hexdigest()[:8], 16)
         return [(hash_int % 1000) / 1000.0 for _ in range(1536)]
     
+    async def _generate_with_retry(self, prompt: str, max_retries: int = 3):
+        """Generate content with retry logic for rate limiting"""
+        for attempt in range(max_retries):
+            try:
+                response = self.model.generate_content(prompt)
+                return response
+            except Exception as e:
+                error_str = str(e)
+                # Check if it's a 429 rate limit error
+                if "429" in error_str or "Resource exhausted" in error_str or "quota" in error_str.lower():
+                    if attempt < max_retries - 1:
+                        # Exponential backoff: wait 2^attempt seconds
+                        wait_time = (2 ** attempt) * 2  # 2, 4, 8 seconds
+                        print(f"⚠️  Rate limit hit. Waiting {wait_time} seconds before retry {attempt + 1}/{max_retries}...")
+                        await asyncio.sleep(wait_time)
+                        continue
+                    else:
+                        raise Exception(f"Rate limit exceeded after {max_retries} attempts. Please wait a few minutes and try again.")
+                else:
+                    # Not a rate limit error, re-raise
+                    raise e
+        raise Exception("Failed to generate content after retries")
+    
     def _validate_no_fabrication(
         self,
         base: Dict[str, Any],
