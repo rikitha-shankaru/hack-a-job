@@ -93,12 +93,19 @@ class TailorService:
         if not resume_pdf_path:
             try:
                 resume_pdf_path = await self.pdf_generator.generate_resume_pdf(tailored_resume)
-                resume_pdf_output = os.path.join(uploads_dir, f"resume_{user.id}_{job.id}.pdf")
-                import shutil
-                if os.path.exists(resume_pdf_path):
-                    shutil.copy2(resume_pdf_path, resume_pdf_output)
+                # If PDF is already in uploads directory, use it directly
+                if os.path.dirname(resume_pdf_path) == uploads_dir:
+                    resume_pdf_output = resume_pdf_path
                 else:
-                    raise ValueError(f"PDF generation failed: {resume_pdf_path} does not exist")
+                    resume_pdf_output = os.path.join(uploads_dir, f"resume_{user.id}_{job.id}.pdf")
+                    import shutil
+                    if os.path.exists(resume_pdf_path) and resume_pdf_path != resume_pdf_output:
+                        shutil.copy2(resume_pdf_path, resume_pdf_output)
+                    elif resume_pdf_path == resume_pdf_output:
+                        # Already in the right place, no need to copy
+                        pass
+                    else:
+                        raise ValueError(f"PDF generation failed: {resume_pdf_path} does not exist")
             except Exception as e:
                 raise ValueError(f"Failed to generate resume PDF: {str(e)}")
         
@@ -211,6 +218,13 @@ class TailorService:
         os.makedirs(uploads_dir, exist_ok=True)
         
         dest_path = os.path.join(uploads_dir, filename)
+        
+        # If source and destination are the same, no need to copy
+        if os.path.abspath(pdf_path) == os.path.abspath(dest_path):
+            print(f"PDF already in correct location: {pdf_path}")
+            return f"/uploads/pdfs/{filename}"
+        
+        # Copy file to destination
         import shutil
         try:
             shutil.copy2(pdf_path, dest_path)
