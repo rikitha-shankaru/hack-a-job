@@ -40,26 +40,43 @@ export default function JobsPage() {
   const [activeTab, setActiveTab] = useState<Record<string, 'original' | 'tailored' | 'cover'>>({});
   const [error, setError] = useState<Record<string, string>>({});
 
-  // Auto-search on mount if coming from upload (only once)
+  // Restore jobs and search form on mount (only once)
   useEffect(() => {
-    const autoSearch = searchParams.get('autoSearch');
-    const query = searchParams.get('query') || '';
-    const location = searchParams.get('location') || '';
-    const recency = searchParams.get('recency') || 'w2';
-
     // Check if we already have jobs in localStorage (from previous search)
     const savedJobs = localStorage.getItem('jobs');
+    const savedSearch = localStorage.getItem('lastSearch');
+    
     if (savedJobs) {
       try {
         const parsedJobs = JSON.parse(savedJobs);
         if (parsedJobs && parsedJobs.length > 0) {
           // Restore jobs from localStorage instead of searching again
           setJobs(parsedJobs);
-          setSearchForm({
-            query: query || searchForm.query,
-            location: location || searchForm.location,
-            recency: recency || searchForm.recency,
-          });
+          
+          // Restore search form from saved search or URL params
+          if (savedSearch) {
+            try {
+              const parsedSearch = JSON.parse(savedSearch);
+              setSearchForm({
+                query: parsedSearch.query || '',
+                location: parsedSearch.location || '',
+                recency: parsedSearch.recency || 'w2',
+              });
+            } catch (e) {
+              // Fallback to URL params
+              const query = searchParams.get('query') || '';
+              const location = searchParams.get('location') || '';
+              const recency = searchParams.get('recency') || 'w2';
+              setSearchForm({ query, location, recency });
+            }
+          } else {
+            // Use URL params if no saved search
+            const query = searchParams.get('query') || '';
+            const location = searchParams.get('location') || '';
+            const recency = searchParams.get('recency') || 'w2';
+            setSearchForm({ query, location, recency });
+          }
+          
           return; // Don't trigger new search if we have saved jobs
         }
       } catch (e) {
@@ -67,8 +84,13 @@ export default function JobsPage() {
       }
     }
 
-    // Only auto-search if we don't have saved jobs and autoSearch is true
-    if (autoSearch === 'true' && query && !savedJobs) {
+    // Only auto-search if we don't have saved jobs
+    const autoSearch = searchParams.get('autoSearch');
+    const query = searchParams.get('query') || '';
+    const location = searchParams.get('location') || '';
+    const recency = searchParams.get('recency') || 'w2';
+
+    if (autoSearch === 'true' && query) {
       setSearchForm({
         query,
         location,
