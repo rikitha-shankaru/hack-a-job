@@ -197,7 +197,8 @@ Provide a concise explanation (2-3 paragraphs) explaining:
 
 Write in a friendly, professional tone. Focus on actionable insights."""
         
-        response = self.model.generate_content(prompt)
+        # Add retry logic for rate limiting
+        response = await self._generate_with_retry(prompt)
         return response.text.strip()
     
     async def generate_ai_recommendations(
