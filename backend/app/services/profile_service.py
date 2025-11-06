@@ -6,6 +6,7 @@ from app.utils.pdf_to_latex import PDFToLaTeXConverter
 from typing import Dict, Any, Optional
 import json
 import os
+import httpx
 
 class ProfileService:
     def __init__(self):
@@ -51,7 +52,6 @@ class ProfileService:
         
         elif resume_url:
             # Fetch resume from URL
-            import httpx
             async with httpx.AsyncClient() as client:
                 response = await client.get(resume_url)
                 resume_text = response.text

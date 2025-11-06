@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
+import ParticleBackground from '@/components/ParticleBackground';
 
 export default function Home() {
   const router = useRouter();
@@ -97,22 +98,28 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-16">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 relative overflow-hidden">
+      <ParticleBackground />
+      <div className="container mx-auto px-4 py-16 relative z-10">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 animate-fade-in-up">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <span className="text-5xl">🤖</span>
-              <h1 className="text-6xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              <div className="text-6xl animate-float animate-glow-pulse">🤖</div>
+              <h1 className="text-7xl font-bold gradient-text animate-fade-in">
                 Hack-A-Job
               </h1>
             </div>
-            <p className="text-xl text-gray-700 mb-2">
-              <strong>AI-Powered</strong> Job Application Assistant
+            <p className="text-xl text-gray-700 mb-2 animate-slide-in-right">
+              <strong className="gradient-text">AI-Powered</strong> Job Application Assistant
             </p>
+            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
+              <span className="animate-pulse">✨</span>
+              <span>Powered by Gemini AI & OpenAI</span>
+              <span className="animate-pulse">✨</span>
+            </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-xl p-8 border border-purple-100">
+          <div className="glass bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-purple-200/50 animate-scale-in hover-lift">
             {step === 'job-info' ? (
               <>
                 <h2 className="text-2xl font-semibold mb-6">Tell us about your job search</h2>
@@ -168,9 +175,12 @@ export default function Home() {
                   <button
                     onClick={handleJobInfoSubmit}
                     disabled={!formData.targetRole}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-semibold text-lg shadow-lg hover:shadow-xl"
+                    className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white px-6 py-4 rounded-xl hover:from-purple-700 hover:via-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg shadow-lg hover:shadow-2xl btn-magic animate-gradient relative overflow-hidden transform hover:scale-105 transition-all duration-300"
                   >
-                    Continue →
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      Continue
+                      <span className="animate-pulse">→</span>
+                    </span>
                   </button>
                 </div>
               </>
@@ -241,10 +251,10 @@ export default function Home() {
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     onClick={() => document.getElementById('file-input')?.click()}
-                    className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${
+                    className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-300 ${
                       isDragging
-                        ? 'border-purple-500 bg-purple-50 scale-105'
-                        : 'border-gray-300 hover:border-purple-400 hover:bg-gray-50'
+                        ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-indigo-50 scale-105 shadow-lg animate-pulse-glow'
+                        : 'border-gray-300 hover:border-purple-400 hover:bg-gradient-to-br hover:from-purple-50 hover:to-indigo-50 hover:shadow-md hover-lift'
                     }`}
                   >
                     <div className="flex flex-col items-center gap-4">
@@ -315,9 +325,19 @@ export default function Home() {
                   <button
                     onClick={handleResumeSubmit}
                     disabled={loading || !formData.email}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-semibold text-lg shadow-lg hover:shadow-xl"
+                    className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white py-4 rounded-xl hover:from-purple-700 hover:via-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg shadow-lg hover:shadow-2xl btn-magic animate-gradient relative overflow-hidden transform hover:scale-105 transition-all duration-300"
                   >
-                    {loading ? 'Processing...' : 'Search Jobs →'}
+                    {loading ? (
+                      <span className="relative z-10 flex items-center justify-center gap-2">
+                        <div className="spinner w-5 h-5 border-2"></div>
+                        Processing...
+                      </span>
+                    ) : (
+                      <span className="relative z-10 flex items-center justify-center gap-2">
+                        Search Jobs
+                        <span className="animate-pulse">→</span>
+                      </span>
+                    )}
                   </button>
                 </div>
               </>

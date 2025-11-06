@@ -101,7 +101,7 @@ export default function JobsPage() {
     }
   }, []); // Empty dependency array - only run once on mount
 
-  const performSearch = async (searchData: { query: string; location: string; recency: string }) => {
+  const performSearch = useCallback(async (searchData: { query: string; location: string; recency: string }) => {
     setLoading(true);
     setProgress(0);
     setStatus('Starting search...');
@@ -198,13 +198,14 @@ export default function JobsPage() {
   const memoizedJobs = useMemo(() => jobs, [jobs]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 py-12 px-4 relative overflow-hidden">
+      <ParticleBackground />
+      <div className="max-w-6xl mx-auto relative z-10">
+        <h1 className="text-5xl font-bold mb-8 gradient-text animate-fade-in-up">
           Job Search Results
         </h1>
         
-        <form onSubmit={handleSearch} className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-purple-100">
+        <form onSubmit={handleSearch} className="glass bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl p-6 mb-8 border border-purple-200/50 animate-fade-in-up hover-lift">
           <div className="grid md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -252,9 +253,18 @@ export default function JobsPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 font-semibold shadow-lg hover:shadow-xl transition-all"
+            className="mt-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:via-indigo-700 hover:to-purple-700 disabled:opacity-50 font-semibold shadow-lg hover:shadow-2xl btn-magic animate-gradient relative overflow-hidden transform hover:scale-105 transition-all duration-300"
           >
-            {loading ? 'Searching...' : '🔍 Search Jobs'}
+            {loading ? (
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <div className="spinner w-5 h-5 border-2"></div>
+                Searching...
+              </span>
+            ) : (
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                🔍 Search Jobs
+              </span>
+            )}
           </button>
           
           {loading && (
@@ -303,7 +313,7 @@ export default function JobsPage() {
             return (
               <div 
                 key={job.id} 
-                className="bg-white rounded-xl shadow-lg border border-purple-100 hover:shadow-xl transition-all duration-300 animate-fade-in"
+                className="glass bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-purple-200/50 hover:shadow-2xl transition-all duration-300 animate-fade-in-up hover-lift card-3d"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Job Card */}
@@ -361,17 +371,19 @@ export default function JobsPage() {
                       <button
                         onClick={() => handleTailor(job.id)}
                         disabled={isTailoring || !!assets}
-                        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 font-semibold text-center shadow-lg hover:shadow-xl transition-all"
+                        className="px-6 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white rounded-xl hover:from-purple-700 hover:via-indigo-700 hover:to-purple-700 disabled:opacity-50 font-semibold text-center shadow-lg hover:shadow-2xl btn-magic animate-gradient relative overflow-hidden transform hover:scale-105 transition-all duration-300"
                       >
                         {isTailoring ? (
-                          <span className="flex items-center justify-center gap-2">
-                            <span className="animate-spin">⚙️</span>
+                          <span className="relative z-10 flex items-center justify-center gap-2">
+                            <div className="spinner w-4 h-4 border-2"></div>
                             Tailoring...
                           </span>
                         ) : assets ? (
-                          '✅ Tailored'
+                          <span className="relative z-10">✅ Tailored</span>
                         ) : (
-                          needsCoverLetter ? '✨ Tailor Resume & Cover Letter' : '✨ Tailor Resume'
+                          <span className="relative z-10 flex items-center justify-center gap-2">
+                            ✨ {needsCoverLetter ? 'Tailor Resume & Cover Letter' : 'Tailor Resume'}
+                          </span>
                         )}
                       </button>
                     </div>
