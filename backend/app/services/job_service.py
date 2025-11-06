@@ -19,9 +19,9 @@ class JobService:
         recency: str,
         db: Session
     ) -> List[Job]:
-        """Search jobs using Google Custom Search API and store them"""
-        # Build multiple search queries for better coverage
-        # Google CSE works better with simpler queries, so we'll search multiple times
+        """Search jobs using Google Custom Search API - matching Google's native job search format"""
+        # Match Google's exact search format: "software jobs in california"
+        # Google's native job search uses natural language, no site restrictions
         
         # Map recency to Google CSE dateRestrict format
         date_mapping = {
@@ -31,52 +31,45 @@ class JobService:
         }
         date_restrict = date_mapping.get(recency, "w2")
         
-        # Strategy 1: Natural query (like Google's native search)
-        base_query = f'{query}'
+        # Build query EXACTLY like Google's native job search
+        # Format: "{query} jobs in {location}" or "{query} jobs"
         if location:
-            base_query += f' {location}'
-        base_query += ' job'
+            # Google format: "software jobs in california"
+            google_query = f'{query} jobs in {location}'
+        else:
+            google_query = f'{query} jobs'
         
-        # Strategy 2: Search with job-specific keywords
-        job_keywords_query = f'{query} "hiring" "apply"'
-        if location:
-            job_keywords_query += f' {location}'
-        
-        # Strategy 3: Search specific job boards (one at a time for better results)
-        job_board_queries = []
-        job_boards = [
-            ('linkedin.com/jobs', f'{query} site:linkedin.com/jobs'),
-            ('indeed.com', f'{query} site:indeed.com'),
-            ('glassdoor.com', f'{query} site:glassdoor.com'),
-            ('greenhouse.io', f'{query} site:greenhouse.io'),
-            ('lever.co', f'{query} site:lever.co'),
+        # Also try variations that Google uses
+        queries_to_try = [
+            google_query,  # Primary: "software jobs in california"
+            f'{query} {location} jobs' if location else f'{query} jobs',  # Alternative format
+            f'{query} job {location}' if location else f'{query} job',  # Singular
         ]
         
-        if location:
-            for board_name, board_query in job_boards:
-                job_board_queries.append((board_name, f'{board_query} {location}'))
-        else:
-            job_board_queries = job_boards
-        
-        # Search all strategies and combine results
+        # Search all query variations and combine results
         all_items = []
+        seen_urls = set()
         
-        # Search 1: Natural query (2 pages)
-        for start in [1, 11]:
-            items = await self._search_cse(base_query, date_restrict, start)
-            if items:
-                all_items.extend(items)
-        
-        # Search 2: Job keywords query (1 page)
-        items = await self._search_cse(job_keywords_query, date_restrict, 1)
-        if items:
-            all_items.extend(items)
-        
-        # Search 3: Individual job boards (1 page each)
-        for board_name, board_query in job_board_queries[:3]:  # Limit to top 3 boards
-            items = await self._search_cse(board_query, date_restrict, 1)
-            if items:
-                all_items.extend(items)
+        for search_query in queries_to_try:
+            # Search multiple pages for each query (like Google does)
+            for start in [1, 11, 21]:
+                items = await self._search_cse(search_query, date_restrict, start)
+                if not items:
+                    break
+                
+                # Add unique items only
+                for item in items:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_items.append(item)
+                
+                # Limit total results to avoid too many API calls
+                if len(all_items) >= 50:
+                    break
+            
+            if len(all_items) >= 50:
+                break
         
         # Deduplicate by URL
         seen_urls = set()
@@ -142,16 +135,18 @@ class JobService:
         return jobs
     
     async def _search_cse(self, query: str, date_restrict: str, start: int) -> List[dict]:
-        """Search Google Custom Search API"""
+        """Search Google Custom Search API - matching Google's native search behavior"""
         params = {
             "key": settings.google_cse_key,
             "cx": settings.google_cse_cx,
             "q": query.strip(),
             "dateRestrict": date_restrict,
-            "gl": "US",
-            "lr": "lang_en",
-            "num": 10,
-            "start": start
+            "gl": "US",  # Country: United States
+            "lr": "lang_en",  # Language: English
+            "num": 10,  # Results per page
+            "start": start,  # Start index
+            # Don't use site restrictions - let Google CSE search broadly like native search
+            # The filtering will handle removing non-job URLs
         }
         
         async with httpx.AsyncClient() as client:
