@@ -40,14 +40,35 @@ export default function JobsPage() {
   const [activeTab, setActiveTab] = useState<Record<string, 'original' | 'tailored' | 'cover'>>({});
   const [error, setError] = useState<Record<string, string>>({});
 
-  // Auto-search on mount if coming from upload
+  // Auto-search on mount if coming from upload (only once)
   useEffect(() => {
     const autoSearch = searchParams.get('autoSearch');
     const query = searchParams.get('query') || '';
     const location = searchParams.get('location') || '';
     const recency = searchParams.get('recency') || 'w2';
 
-    if (autoSearch === 'true' && query) {
+    // Check if we already have jobs in localStorage (from previous search)
+    const savedJobs = localStorage.getItem('jobs');
+    if (savedJobs) {
+      try {
+        const parsedJobs = JSON.parse(savedJobs);
+        if (parsedJobs && parsedJobs.length > 0) {
+          // Restore jobs from localStorage instead of searching again
+          setJobs(parsedJobs);
+          setSearchForm({
+            query: query || searchForm.query,
+            location: location || searchForm.location,
+            recency: recency || searchForm.recency,
+          });
+          return; // Don't trigger new search if we have saved jobs
+        }
+      } catch (e) {
+        console.error('Failed to parse saved jobs:', e);
+      }
+    }
+
+    // Only auto-search if we don't have saved jobs and autoSearch is true
+    if (autoSearch === 'true' && query && !savedJobs) {
       setSearchForm({
         query,
         location,
@@ -55,7 +76,7 @@ export default function JobsPage() {
       });
       handleAutoSearch({ query, location, recency });
     }
-  }, [searchParams]);
+  }, []); // Empty dependency array - only run once on mount
 
   const performSearch = async (searchData: { query: string; location: string; recency: string }) => {
     setLoading(true);
@@ -91,7 +112,10 @@ export default function JobsPage() {
       setStatus(`✨ Found ${response.data.jobs.length} jobs!`);
       
       setJobs(response.data.jobs);
+      // Store jobs in localStorage for persistence across navigation
       localStorage.setItem('jobs', JSON.stringify(response.data.jobs));
+      // Also store search params for restoring form
+      localStorage.setItem('lastSearch', JSON.stringify(searchData));
       
       setTimeout(() => {
         setProgress(0);
