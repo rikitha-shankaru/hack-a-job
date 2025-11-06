@@ -146,6 +146,12 @@ export default function JobsPage() {
           )}
         </form>
 
+        {jobs.length > 0 && (
+          <div className="mb-4 text-gray-600 text-lg">
+            Found <span className="font-semibold text-indigo-600">{jobs.length}</span> job{jobs.length !== 1 ? 's' : ''}
+          </div>
+        )}
+
         <div className="space-y-4">
           {jobs.map((job) => (
             <div key={job.id} className="bg-white rounded-lg shadow p-6">
