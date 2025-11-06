@@ -1,8 +1,7 @@
-from typing import TypedDict, Optional, Any
+from typing import TypedDict, Optional, Any, Dict
 from langgraph.graph import StateGraph, END
 from app.models import User, Job, TailoredAsset, AutofillRun
 from sqlalchemy.orm import Session
-from typing import Dict
 import uuid
 
 class WorkflowState(TypedDict):
