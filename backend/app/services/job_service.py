@@ -334,174 +334,138 @@ class JobService:
         return any(pattern in url_lower for pattern in exclude_patterns)
     
     def _is_valid_job(self, job_data: dict, location_filter: Optional[str] = None) -> bool:
-        """Validate that job data represents an actual job posting"""
-        title = job_data.get("title", "").lower()
-        company = job_data.get("company", "")
+        """
+        Simplified job validation - only reject clearly invalid jobs
+        Be lenient and accept most jobs from known job boards
+        """
+        title = job_data.get("title", "").strip()
+        company = job_data.get("company", "").strip()
         jd_text = job_data.get("jd_text", "")
         url = job_data.get("url", "").lower()
         job_location = job_data.get("location", "").lower() if job_data.get("location") else ""
         
-        # Check for expired/unavailable job indicators
-        unavailable_indicators = [
-            'no longer available', 'job is no longer available', 'position has been filled',
-            'this job is closed', 'application closed', 'position closed', 'no longer accepting',
-            'expired', 'unavailable', 'filled', 'closed position'
-        ]
+        # CRITICAL CHECKS ONLY - reject if missing essential data
+        if not title:
+            print(f"❌ Rejecting: Missing title - {url[:50]}")
+            return False
         
-        if jd_text:
-            jd_lower = jd_text.lower()
-            if any(indicator in jd_lower for indicator in unavailable_indicators):
-                return False
-        
-        # Check if this is from a known job board - be more lenient with these
+        # Check if this is from a known job board - trust these sources
         is_job_board_url = any(board in url for board in [
             'linkedin.com/jobs', 'indeed.com/viewjob', 'indeed.com/jobs', 
             'glassdoor.com/job', 'monster.com', 'ziprecruiter.com',
             'greenhouse.io', 'lever.co', 'careers.', 'jobs.'
         ])
         
-        # Reject generic/nonsensical titles - but be lenient for job boards
-        generic_titles = [
-            'homepage', 'home page', 'welcome', 'sorry, you have been blocked',
-            'just a moment', 'headlines', 'upcoming events', 'search salaries',
-            'jobs jobs found', 'jobs found', 'jobs jobs',  # Generic search result pages
-            'powered by people', 'qualcomm careers', 'engineering jobs and more',
-            'careers |', 'careers page', 'all jobs', 'view all jobs',
-            'browse jobs', 'find jobs', 'search jobs', 'job search',
-            'sign in', 'log in', 'create account', 'register', 'login',
-            'privacy policy', 'terms of service', 'cookie policy',
-            'about us', 'contact us', 'help center', 'support'
-        ]
-        
-        # Check if title is EXACTLY a generic site name (not just containing it)
-        title_lower = title.lower().strip()
-        if title_lower in ['linkedin', 'indeed', 'glassdoor', 'monster', 'ziprecruiter', 'google']:
-            # If it's from a job board URL and has a job description, allow it
-            if not (is_job_board_url and jd_text and len(jd_text) > 100):
-                return False
-        
-        # For job boards, be more lenient - only reject if it's clearly not a job
+        # For job boards, be VERY lenient - only reject obvious errors
         if is_job_board_url:
-            # Only reject if title is clearly a generic page AND no job description
-            if any(gt in title_lower for gt in generic_titles) and (not jd_text or len(jd_text) < 100):
+            # Only reject if:
+            # 1. Title is clearly a generic page (homepage, login, etc.)
+            # 2. Job is explicitly unavailable
+            # 3. Future date (parsing error)
+            
+            title_lower = title.lower()
+            generic_page_titles = [
+                'homepage', 'home page', 'welcome', 'sign in', 'log in', 'login',
+                'privacy policy', 'terms of service', 'about us', 'contact us'
+            ]
+            
+            # Reject generic page titles
+            if title_lower in generic_page_titles:
+                print(f"❌ Rejecting: Generic page title '{title}' - {url[:50]}")
                 return False
-        else:
-            # For non-job-board URLs, be stricter
-            if any(gt in title_lower for gt in generic_titles):
-                return False
-        
-        # Reject titles with emojis (usually not real job titles)
-        import re
-        if re.search(r'[🐻🎯🔥💼🚀]', job_data.get("title", "")):
-            return False
-        
-        # Must have a meaningful title (more than 3 words, less than 100 chars)
-        # But be lenient for job boards - they might have shorter titles
-        title_words = title.split()
-        if not is_job_board_url:
-            # Stricter for non-job-board URLs
-            if len(title_words) < 3 or len(title) > 100:
-                return False
-        else:
-            # More lenient for job boards - allow 2-word titles if there's a good description
-            if len(title_words) < 2 or len(title) > 100:
-                return False
-            # If title is too short, require substantial job description
-            if len(title_words) < 3 and (not jd_text or len(jd_text) < 150):
-                return False
-        
-        # Title should look like a job title (not just company name + "jobs")
-        if title.endswith(' jobs') and len(title_words) <= 3:
-            return False
-        
-        # Reject titles that are clearly career pages, not job postings
-        career_page_indicators = [
-            'careers |', 'careers page', 'all jobs', 'view all jobs',
-            'jobs and more', 'engineering jobs and more', 'find jobs',
-            'search jobs', 'browse jobs', 'job search',
-            'careers at', 'careers in', 'career opportunities',  # "Careers at RBC"
-            'join our team', 'work with us', 'we are hiring', 'open positions'
-        ]
-        if any(indicator in title.lower() for indicator in career_page_indicators):
-            return False
-        
-        # Reject if title starts with "Careers" (career pages, not jobs)
-        if title.lower().startswith('careers'):
-            return False
-        
-        # Must have company OR job description
-        if not company and not jd_text:
-            return False
-        
-        # Company name shouldn't be generic or weird
-        generic_companies = [
-            'health care', 'healthcare', 'linkedin', 'indeed', 'glassdoor',
-            'professional', 'company', 'corporation', 'inc', 'llc',  # Too generic
-            'rbc',  # Just "RBC" without context is likely a career page
-        ]
-        if company:
-            company_lower = company.lower().strip()
-            # Reject generic company names
-            if company_lower in generic_companies:
-                if not jd_text or len(jd_text) < 200:  # Need substantial job description
+            
+            # Check for unavailable jobs
+            if jd_text:
+                jd_lower = jd_text.lower()
+                unavailable_indicators = [
+                    'no longer available', 'position has been filled', 'this job is closed',
+                    'application closed', 'position closed', 'expired', 'unavailable', 'filled'
+                ]
+                if any(indicator in jd_lower for indicator in unavailable_indicators):
+                    print(f"❌ Rejecting: Unavailable job '{title}' - {url[:50]}")
                     return False
-            # Reject company names with weird prefixes (like "z_Greendale")
-            if company_lower.startswith('z_') or company_lower.startswith('x_'):
-                return False
-            # Company name should be meaningful (more than 2 characters, less than 100)
-            if len(company_lower) < 3 or len(company_lower) > 100:
-                return False
+            
+            # Check for future dates (parsing errors)
+            date_posted = job_data.get("date_posted")
+            if date_posted:
+                from datetime import date, timedelta
+                today = date.today()
+                if date_posted > today:
+                    print(f"❌ Rejecting: Future date {date_posted} - {url[:50]}")
+                    return False
+                # Allow old dates (don't reject - might be reposted)
+            
+            # Job boards are trusted - accept everything else
+            print(f"✅ Accepting job board job: '{title}' at {company or 'Unknown'}")
+            return True
         
-        # Job description should contain job-related keywords
-        # But be lenient for job boards - they're usually valid even without keywords
+        # For non-job-board URLs, do basic validation
+        title_lower = title.lower()
+        
+        # Reject obviously non-job titles
+        if len(title.split()) < 2:  # Too short
+            print(f"❌ Rejecting: Title too short '{title}' - {url[:50]}")
+            return False
+        
+        # Reject generic page titles
+        generic_titles = [
+            'homepage', 'home page', 'welcome', 'just a moment',
+            'sorry, you have been blocked', 'headlines', 'upcoming events'
+        ]
+        if title_lower in generic_titles:
+            print(f"❌ Rejecting: Generic title '{title}' - {url[:50]}")
+            return False
+        
+        # Reject if no company AND no job description
+        if not company and not jd_text:
+            print(f"❌ Rejecting: No company or description - {url[:50]}")
+            return False
+        
+        # Check for unavailable jobs
         if jd_text:
             jd_lower = jd_text.lower()
-            job_keywords = ['responsibilities', 'requirements', 'qualifications', 
-                          'experience', 'skills', 'apply', 'position', 'role',
-                          'salary', 'benefits', 'full-time', 'part-time', 'remote',
-                          'job description', 'we are looking', 'candidate', 'must have',
-                          'about the role', 'what you', 'you will', 'you\'ll', 'we need']
-            if not any(keyword in jd_lower for keyword in job_keywords):
-                # If no job keywords, only reject if it's NOT from a known job board
-                # Job boards are trusted sources - allow them even without keywords
-                if not is_job_board_url:
-                    return False
+            unavailable_indicators = [
+                'no longer available', 'position has been filled', 'this job is closed',
+                'application closed', 'position closed', 'expired', 'unavailable'
+            ]
+            if any(indicator in jd_lower for indicator in unavailable_indicators):
+                print(f"❌ Rejecting: Unavailable job '{title}' - {url[:50]}")
+                return False
         
-        # Check for future dates (likely parsing errors) - reject ALL future dates
+        # Check for future dates
         date_posted = job_data.get("date_posted")
         if date_posted:
-            from datetime import date, timedelta
+            from datetime import date
             today = date.today()
             if date_posted > today:
-                # Future date is definitely a parsing error - reject it
-                print(f"Rejecting job with future date: {date_posted} (today: {today})")
+                print(f"❌ Rejecting: Future date {date_posted} - {url[:50]}")
                 return False
-            # Also reject dates too far in the past (more than 1 year old)
-            one_year_ago = today - timedelta(days=365)
-            if date_posted < one_year_ago:
-                print(f"Rejecting job with old date: {date_posted} (more than 1 year old)")
-                return False
+        
+        # Accept if we got here
+        print(f"✅ Accepting: '{title}' at {company or 'Unknown'}")
+        return True
         
         # Location filtering - if location specified, job must match OR be remote
         # Remote jobs are always included regardless of location filter
-        is_remote_job = False
-        if job_location:
-            job_location_lower = job_location.lower()
-            remote_indicators = ['remote', 'anywhere', 'work from home', 'wfh', 'virtual', 'distributed']
-            is_remote_job = any(indicator in job_location_lower for indicator in remote_indicators)
-        
-        # Also check job description for remote indicators
-        if not is_remote_job and jd_text:
-            jd_lower = jd_text.lower()
-            remote_indicators = ['remote', 'anywhere', 'work from home', 'wfh', 'virtual', 'distributed', 'work remotely']
-            is_remote_job = any(indicator in jd_lower for indicator in remote_indicators)
-        
-        # If it's a remote job, always include it (regardless of location filter)
-        if is_remote_job:
-            return True
-        
-        # If location filter specified and job is not remote, must match location
         if location_filter:
+            is_remote_job = False
+            if job_location:
+                job_location_lower = job_location.lower()
+                remote_indicators = ['remote', 'anywhere', 'work from home', 'wfh', 'virtual', 'distributed']
+                is_remote_job = any(indicator in job_location_lower for indicator in remote_indicators)
+            
+            # Also check job description for remote indicators
+            if not is_remote_job and jd_text:
+                jd_lower = jd_text.lower()
+                remote_indicators = ['remote', 'anywhere', 'work from home', 'wfh', 'virtual', 'distributed', 'work remotely']
+                is_remote_job = any(indicator in jd_lower for indicator in remote_indicators)
+            
+            # If it's a remote job, always include it (regardless of location filter)
+            if is_remote_job:
+                print(f"✅ Accepting remote job: '{title}'")
+                return True
+            
+            # If location filter specified and job is not remote, must match location
             location_filter_lower = location_filter.lower().strip()
             # Normalize location filter (remove common variations)
             location_variations = {
