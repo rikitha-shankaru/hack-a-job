@@ -206,6 +206,21 @@ ${projects}
             if link_parts:
                 links_text = " | ".join(link_parts)
         
+        # Ensure hyperref package is included for links to work
+        if links_text and "\\usepackage{hyperref}" not in latex:
+            # Find where packages are and add hyperref
+            if "\\usepackage" in latex:
+                # Add after other packages
+                latex = latex.replace("\\usepackage{xcolor}", "\\usepackage{xcolor}\n\\usepackage{hyperref}")
+                if "\\usepackage{xcolor}" not in latex:
+                    # Find last \usepackage and add after it
+                    import re
+                    matches = list(re.finditer(r'\\usepackage\{[^}]+\}', latex))
+                    if matches:
+                        last_match = matches[-1]
+                        insert_pos = last_match.end()
+                        latex = latex[:insert_pos] + "\n\\usepackage{hyperref}" + latex[insert_pos:]
+        
         # Replace header placeholders (handle both ${var} and {var} formats)
         # Also handle cases where links might be in the header
         latex = latex.replace("${name}", self._escape_latex(name))
