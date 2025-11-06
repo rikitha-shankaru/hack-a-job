@@ -16,6 +16,14 @@ interface Job {
   jd_text?: string;
 }
 
+interface TailoredAssets {
+  assetsId: string;
+  originalResumePdfUrl?: string;
+  resumePdfUrl: string;
+  coverPdfUrl: string;
+  diffs?: any;
+}
+
 export default function JobsPage() {
   const searchParams = useSearchParams();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -27,6 +35,10 @@ export default function JobsPage() {
     location: '',
     recency: 'w2',
   });
+  const [tailoringJobId, setTailoringJobId] = useState<string | null>(null);
+  const [tailoredAssets, setTailoredAssets] = useState<Record<string, TailoredAssets>>({});
+  const [activeTab, setActiveTab] = useState<Record<string, 'original' | 'tailored' | 'cover'>>({});
+  const [error, setError] = useState<Record<string, string>>({});
 
   // Auto-search on mount if coming from upload
   useEffect(() => {
@@ -101,6 +113,31 @@ export default function JobsPage() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     performSearch(searchForm);
+  };
+
+  const handleTailor = async (jobId: string) => {
+    setTailoringJobId(jobId);
+    setError({ ...error, [jobId]: '' });
+    
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      setError({ ...error, [jobId]: 'Please upload your resume first' });
+      setTailoringJobId(null);
+      return;
+    }
+
+    try {
+      const response = await apiClient.post('/api/tailor', {
+        userId,
+        jobId,
+      });
+      setTailoredAssets({ ...tailoredAssets, [jobId]: response.data });
+      setActiveTab({ ...activeTab, [jobId]: 'tailored' });
+    } catch (err: any) {
+      setError({ ...error, [jobId]: err.response?.data?.detail || 'Failed to tailor resume' });
+    } finally {
+      setTailoringJobId(null);
+    }
   };
 
   const checkCoverLetterRequired = (jdText?: string): boolean => {
@@ -197,70 +234,214 @@ export default function JobsPage() {
         <div className="space-y-4">
           {jobs.map((job, index) => {
             const needsCoverLetter = checkCoverLetterRequired(job.jd_text);
+            const isTailoring = tailoringJobId === job.id;
+            const assets = tailoredAssets[job.id];
+            const tab = activeTab[job.id] || 'tailored';
+            
             return (
               <div 
                 key={job.id} 
-                className="bg-white rounded-xl shadow-lg p-6 border border-purple-100 hover:shadow-xl transition-all duration-300 animate-fade-in"
+                className="bg-white rounded-xl shadow-lg border border-purple-100 hover:shadow-xl transition-all duration-300 animate-fade-in"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="flex justify-between items-start gap-4">
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                      {job.title}
-                    </h3>
-                    <div className="space-y-2">
-                      <p className="text-lg text-gray-700 font-semibold">{job.company || 'Company not specified'}</p>
-                      {job.location && (
-                        <p className="text-sm text-gray-600 flex items-center gap-2">
-                          <span>📍</span> <span className="font-medium">{job.location}</span>
-                        </p>
+                {/* Job Card */}
+                <div className="p-6">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                        {job.title}
+                      </h3>
+                      <div className="space-y-2">
+                        <p className="text-lg text-gray-700 font-semibold">{job.company || 'Company not specified'}</p>
+                        {job.location && (
+                          <p className="text-sm text-gray-600 flex items-center gap-2">
+                            <span>📍</span> <span className="font-medium">{job.location}</span>
+                          </p>
+                        )}
+                        {job.datePosted && (
+                          <p className="text-sm text-gray-600 flex items-center gap-2">
+                            <span>📅</span> <span>{new Date(job.datePosted).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}</span>
+                          </p>
+                        )}
+                      </div>
+                      {job.jd_keywords && job.jd_keywords.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {job.jd_keywords.slice(0, 8).map((keyword, idx) => (
+                            <span
+                              key={idx}
+                              className="px-3 py-1 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 text-xs rounded-full font-medium border border-purple-200"
+                            >
+                              {keyword}
+                            </span>
+                          ))}
+                        </div>
                       )}
-                      {job.datePosted && (
-                        <p className="text-sm text-gray-600 flex items-center gap-2">
-                          <span>📅</span> <span>{new Date(job.datePosted).toLocaleDateString('en-US', { 
-                            year: 'numeric', 
-                            month: 'short', 
-                            day: 'numeric' 
-                          })}</span>
-                        </p>
+                      {needsCoverLetter && (
+                        <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-full">
+                          <span className="text-yellow-600">📝</span>
+                          <span className="text-xs font-medium text-yellow-700">Cover letter required</span>
+                        </div>
                       )}
                     </div>
-                    {job.jd_keywords && job.jd_keywords.length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {job.jd_keywords.slice(0, 8).map((keyword, idx) => (
-                          <span
-                            key={idx}
-                            className="px-3 py-1 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 text-xs rounded-full font-medium border border-purple-200"
-                          >
-                            {keyword}
+                    <div className="flex flex-col gap-2 min-w-[200px]">
+                      <a
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 border-2 border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 font-semibold text-center transition-all"
+                      >
+                        View Job Details
+                      </a>
+                      <button
+                        onClick={() => handleTailor(job.id)}
+                        disabled={isTailoring || !!assets}
+                        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 font-semibold text-center shadow-lg hover:shadow-xl transition-all"
+                      >
+                        {isTailoring ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <span className="animate-spin">⚙️</span>
+                            Tailoring...
                           </span>
-                        ))}
-                      </div>
-                    )}
-                    {needsCoverLetter && (
-                      <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-full">
-                        <span className="text-yellow-600">📝</span>
-                        <span className="text-xs font-medium text-yellow-700">Cover letter required</span>
-                      </div>
-                    )}
+                        ) : assets ? (
+                          '✅ Tailored'
+                        ) : (
+                          needsCoverLetter ? '✨ Tailor Resume & Cover Letter' : '✨ Tailor Resume'
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-2 min-w-[200px]">
-                    <a
-                      href={job.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 border-2 border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 font-semibold text-center transition-all"
-                    >
-                      View Job Details
-                    </a>
-                    <Link
-                      href={`/jobs/${job.id}/tailor`}
-                      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 font-semibold text-center shadow-lg hover:shadow-xl transition-all"
-                    >
-                      {needsCoverLetter ? '✨ Tailor Resume & Cover Letter' : '✨ Tailor Resume'}
-                    </Link>
-                  </div>
+
+                  {error[job.id] && (
+                    <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                      {error[job.id]}
+                    </div>
+                  )}
                 </div>
+
+                {/* Tailored Assets Preview */}
+                {assets && (
+                  <div className="border-t border-gray-200 p-6 bg-gray-50">
+                    <h4 className="text-lg font-semibold mb-4">Tailored Documents</h4>
+                    
+                    {/* Tabs */}
+                    <div className="flex gap-2 mb-4 border-b border-gray-200">
+                      {assets.originalResumePdfUrl && (
+                        <button
+                          onClick={() => setActiveTab({ ...activeTab, [job.id]: 'original' })}
+                          className={`px-4 py-2 font-medium transition-colors ${
+                            tab === 'original'
+                              ? 'border-b-2 border-purple-600 text-purple-600'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          📄 Original Resume
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setActiveTab({ ...activeTab, [job.id]: 'tailored' })}
+                        className={`px-4 py-2 font-medium transition-colors ${
+                          tab === 'tailored'
+                            ? 'border-b-2 border-purple-600 text-purple-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        ✨ Tailored Resume
+                      </button>
+                      <button
+                        onClick={() => setActiveTab({ ...activeTab, [job.id]: 'cover' })}
+                        className={`px-4 py-2 font-medium transition-colors ${
+                          tab === 'cover'
+                            ? 'border-b-2 border-purple-600 text-purple-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        ✉️ Cover Letter
+                      </button>
+                    </div>
+
+                    {/* PDF Preview */}
+                    <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50 mb-4" style={{ height: '600px' }}>
+                      {tab === 'original' && assets.originalResumePdfUrl && (
+                        <iframe
+                          src={`${assets.originalResumePdfUrl}#toolbar=1`}
+                          className="w-full h-full"
+                          title="Original Resume Preview"
+                        />
+                      )}
+                      {tab === 'tailored' && assets.resumePdfUrl && (
+                        <iframe
+                          src={`${assets.resumePdfUrl}#toolbar=1`}
+                          className="w-full h-full"
+                          title="Tailored Resume Preview"
+                        />
+                      )}
+                      {tab === 'cover' && assets.coverPdfUrl && (
+                        <iframe
+                          src={`${assets.coverPdfUrl}#toolbar=1`}
+                          className="w-full h-full"
+                          title="Cover Letter Preview"
+                        />
+                      )}
+                    </div>
+
+                    {/* Download Actions */}
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {assets.originalResumePdfUrl && (
+                        <a
+                          href={assets.originalResumePdfUrl}
+                          download
+                          target="_blank"
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-semibold"
+                        >
+                          <span>📄</span>
+                          Download Original
+                        </a>
+                      )}
+                      <a
+                        href={assets.resumePdfUrl}
+                        download
+                        target="_blank"
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-semibold"
+                      >
+                        <span>✨</span>
+                        Download Tailored Resume
+                      </a>
+                      <a
+                        href={assets.coverPdfUrl}
+                        download
+                        target="_blank"
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-all font-semibold"
+                      >
+                        <span>✉️</span>
+                        Download Cover Letter
+                      </a>
+                    </div>
+
+                    {/* Apply Options */}
+                    <div className="mt-6 grid md:grid-cols-2 gap-4">
+                      <a
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+                      >
+                        <span>✋</span>
+                        Manual Application →
+                      </a>
+                      <Link
+                        href={`/jobs/${job.id}/tailor`}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition font-medium"
+                      >
+                        <span>🤖</span>
+                        AI Autofill →
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
