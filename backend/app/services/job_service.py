@@ -300,7 +300,14 @@ class JobService:
             if any(indicator in jd_lower for indicator in unavailable_indicators):
                 return False
         
-        # Reject generic/nonsensical titles - be more aggressive
+        # Check if this is from a known job board - be more lenient with these
+        is_job_board_url = any(board in url for board in [
+            'linkedin.com/jobs', 'indeed.com/viewjob', 'indeed.com/jobs', 
+            'glassdoor.com/job', 'monster.com', 'ziprecruiter.com',
+            'greenhouse.io', 'lever.co', 'careers.', 'jobs.'
+        ])
+        
+        # Reject generic/nonsensical titles - but be lenient for job boards
         generic_titles = [
             'homepage', 'home page', 'welcome', 'sorry, you have been blocked',
             'just a moment', 'headlines', 'upcoming events', 'search salaries',
@@ -308,19 +315,27 @@ class JobService:
             'powered by people', 'qualcomm careers', 'engineering jobs and more',
             'careers |', 'careers page', 'all jobs', 'view all jobs',
             'browse jobs', 'find jobs', 'search jobs', 'job search',
-            'linkedin', 'indeed', 'glassdoor', 'monster', 'ziprecruiter',  # Generic site names
             'sign in', 'log in', 'create account', 'register', 'login',
             'privacy policy', 'terms of service', 'cookie policy',
             'about us', 'contact us', 'help center', 'support'
         ]
         
-        # Check if title is just a generic site name
+        # Check if title is EXACTLY a generic site name (not just containing it)
         title_lower = title.lower().strip()
         if title_lower in ['linkedin', 'indeed', 'glassdoor', 'monster', 'ziprecruiter', 'google']:
-            return False
+            # If it's from a job board URL and has a job description, allow it
+            if not (is_job_board_url and jd_text and len(jd_text) > 100):
+                return False
         
-        if any(gt in title_lower for gt in generic_titles):
-            return False
+        # For job boards, be more lenient - only reject if it's clearly not a job
+        if is_job_board_url:
+            # Only reject if title is clearly a generic page AND no job description
+            if any(gt in title_lower for gt in generic_titles) and (not jd_text or len(jd_text) < 100):
+                return False
+        else:
+            # For non-job-board URLs, be stricter
+            if any(gt in title_lower for gt in generic_titles):
+                return False
         
         # Reject titles with emojis (usually not real job titles)
         import re
@@ -328,9 +343,19 @@ class JobService:
             return False
         
         # Must have a meaningful title (more than 3 words, less than 100 chars)
+        # But be lenient for job boards - they might have shorter titles
         title_words = title.split()
-        if len(title_words) < 3 or len(title) > 100:
-            return False
+        if not is_job_board_url:
+            # Stricter for non-job-board URLs
+            if len(title_words) < 3 or len(title) > 100:
+                return False
+        else:
+            # More lenient for job boards - allow 2-word titles if there's a good description
+            if len(title_words) < 2 or len(title) > 100:
+                return False
+            # If title is too short, require substantial job description
+            if len(title_words) < 3 and (not jd_text or len(jd_text) < 150):
+                return False
         
         # Title should look like a job title (not just company name + "jobs")
         if title.endswith(' jobs') and len(title_words) <= 3:
@@ -375,18 +400,18 @@ class JobService:
                 return False
         
         # Job description should contain job-related keywords
+        # But be lenient for job boards - they're usually valid even without keywords
         if jd_text:
             jd_lower = jd_text.lower()
             job_keywords = ['responsibilities', 'requirements', 'qualifications', 
                           'experience', 'skills', 'apply', 'position', 'role',
                           'salary', 'benefits', 'full-time', 'part-time', 'remote',
-                          'job description', 'we are looking', 'candidate', 'must have']
+                          'job description', 'we are looking', 'candidate', 'must have',
+                          'about the role', 'what you', 'you will', 'you\'ll', 'we need']
             if not any(keyword in jd_lower for keyword in job_keywords):
-                # If no job keywords, reject unless it's from a known job board
-                known_job_boards = ['greenhouse', 'lever', 'linkedin.com/jobs', 
-                                   'indeed.com', 'glassdoor.com', 'monster.com',
-                                   'ziprecruiter.com', 'careers.', 'jobs.']
-                if not any(board in url for board in known_job_boards):
+                # If no job keywords, only reject if it's NOT from a known job board
+                # Job boards are trusted sources - allow them even without keywords
+                if not is_job_board_url:
                     return False
         
         # Check for future dates (likely parsing errors) - reject ALL future dates
