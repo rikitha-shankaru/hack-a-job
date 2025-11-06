@@ -12,10 +12,10 @@ class LaTeXGenerator:
     
     def _get_resume_template(self) -> str:
         """Get LaTeX resume template"""
-        return r"""\documentclass[11pt,a4paper]{article}
+        return r"""\documentclass[10pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage[margin=0.75in]{geometry}
+\usepackage[margin=0.6in]{geometry}
 \usepackage{fancyhdr}
 \usepackage{enumitem}
 \usepackage{titlesec}
@@ -24,11 +24,11 @@ class LaTeXGenerator:
 % Style settings
 \pagestyle{empty}
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{6pt}
+\setlength{\parskip}{4pt}
 
-% Section formatting
+% Section formatting - more compact
 \titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
-\titlespacing*{\section}{0pt}{12pt}{6pt}
+\titlespacing*{\section}{0pt}{8pt}{4pt}
 
 % Custom commands
 \newcommand{\resumeheader}[4]{
@@ -83,21 +83,22 @@ ${projects}
         """Generate LaTeX using default template"""
         template = Template(self.template)
         
-        # Format experience
+        # Format experience - limit bullets to fit on 1 page
         experience_latex = ""
         for exp in resume_json.get("experience", []):
             company = exp.get("company", "")
             title = exp.get("title", "")
             start = exp.get("start", "")
             end = exp.get("end", "Present")
-            bullets = exp.get("bullets", [])
+            # Limit to 3 most relevant bullets per role
+            bullets = exp.get("bullets", [])[:3]
             
             experience_latex += f"\\resumeitem{{{title}}}{{{start} - {end}}}{{{company}}}{{}}\n"
             for bullet in bullets:
                 # Escape LaTeX special characters
                 bullet_escaped = self._escape_latex(bullet)
                 experience_latex += f"        \\item {bullet_escaped}\n"
-            experience_latex += "    \\end{itemize}\n\\vspace{6pt}\n"
+            experience_latex += "    \\end{itemize}\n\\vspace{4pt}\n"  # Reduced from 6pt
         
         # Format education
         education_latex = ""
@@ -143,19 +144,22 @@ ${projects}
         skills = resume_json.get("skills", [])
         skills_latex = ", ".join(skills)
         
-        # Format projects
+        # Format projects - limit to fit on 1 page
         projects_latex = ""
         if resume_json.get("projects"):
             projects_latex = "\\section{Projects}\n"
-            for project in resume_json.get("projects", []):
+            # Limit to 3 most relevant projects
+            projects_list = resume_json.get("projects", [])[:3]
+            for project in projects_list:
                 name = project.get("name", "")
-                bullets = project.get("bullets", [])
+                # Limit to 2 bullets per project
+                bullets = project.get("bullets", [])[:2]
                 projects_latex += f"\\textbf{{{name}}}\n"
                 projects_latex += "\\begin{itemize}[leftmargin=*,topsep=0pt,itemsep=2pt]\n"
                 for bullet in bullets:
                     bullet_escaped = self._escape_latex(bullet)
                     projects_latex += f"    \\item {bullet_escaped}\n"
-                projects_latex += "\\end{itemize}\n\\vspace{6pt}\n"
+                projects_latex += "\\end{itemize}\n\\vspace{4pt}\n"  # Reduced from 6pt
         
         return template.render(
             name=resume_json.get("name", ""),

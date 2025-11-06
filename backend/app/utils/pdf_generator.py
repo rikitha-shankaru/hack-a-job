@@ -39,38 +39,45 @@ class PDFGenerator:
         self.body_style = ParagraphStyle(
             'CustomBody',
             parent=self.styles['Normal'],
-            fontSize=10,
+            fontSize=9,  # Reduced from 10 to fit more content
             textColor='black',
-            spaceAfter=6,
+            spaceAfter=4,  # Reduced from 6
             alignment=TA_LEFT,
-            bulletIndent=20
+            bulletIndent=15  # Reduced from 20
         )
     
     async def generate_resume_pdf(self, resume_json: Dict[str, Any]) -> str:
-        """Generate resume PDF from JSON"""
+        """Generate resume PDF from JSON - optimized for 1 page"""
         # Create temporary file
         fd, temp_path = tempfile.mkstemp(suffix='.pdf')
         os.close(fd)
         
+        # Reduced margins to fit more content on 1 page
         doc = SimpleDocTemplate(temp_path, pagesize=letter,
-                                rightMargin=72, leftMargin=72,
-                                topMargin=72, bottomMargin=72)
+                                rightMargin=60, leftMargin=60,
+                                topMargin=60, bottomMargin=60)
         
         story = []
         
-        # Summary
+        # Summary - compact
         if resume_json.get("summary"):
-            story.append(Paragraph(resume_json["summary"], self.body_style))
-            story.append(Spacer(1, 0.2*inch))
+            # Truncate summary if too long to fit on 1 page
+            summary = resume_json["summary"]
+            if len(summary) > 300:
+                summary = summary[:297] + "..."
+            story.append(Paragraph(summary, self.body_style))
+            story.append(Spacer(1, 0.1*inch))  # Reduced from 0.2
         
-        # Skills
+        # Skills - compact
         if resume_json.get("skills"):
             story.append(Paragraph("<b>Skills</b>", self.heading_style))
-            skills_text = ", ".join(resume_json["skills"])
+            # Limit to top 15-20 skills to save space
+            skills = resume_json["skills"][:20]
+            skills_text = ", ".join(skills)
             story.append(Paragraph(skills_text, self.body_style))
-            story.append(Spacer(1, 0.15*inch))
+            story.append(Spacer(1, 0.1*inch))  # Reduced from 0.15
         
-        # Experience
+        # Experience - limit bullets per role
         if resume_json.get("experience"):
             story.append(Paragraph("<b>Experience</b>", self.heading_style))
             for exp in resume_json["experience"]:
@@ -81,23 +88,28 @@ class PDFGenerator:
                 header = f"<b>{title}</b> at {company} | {dates}"
                 story.append(Paragraph(header, self.body_style))
                 
-                # Bullets
-                for bullet in exp.get("bullets", []):
+                # Limit to 3 most relevant bullets per role
+                bullets = exp.get("bullets", [])[:3]
+                for bullet in bullets:
                     story.append(Paragraph(f"• {bullet}", self.body_style))
                 
-                story.append(Spacer(1, 0.1*inch))
+                story.append(Spacer(1, 0.05*inch))  # Reduced from 0.1
         
-        # Projects
+        # Projects - limit bullets per project
         if resume_json.get("projects"):
             story.append(Paragraph("<b>Projects</b>", self.heading_style))
-            for project in resume_json["projects"]:
+            # Limit to 3 most relevant projects
+            projects = resume_json["projects"][:3]
+            for project in projects:
                 name = project.get("name", "")
                 story.append(Paragraph(f"<b>{name}</b>", self.body_style))
-                for bullet in project.get("bullets", []):
+                # Limit to 2 bullets per project
+                bullets = project.get("bullets", [])[:2]
+                for bullet in bullets:
                     story.append(Paragraph(f"• {bullet}", self.body_style))
-                story.append(Spacer(1, 0.1*inch))
+                story.append(Spacer(1, 0.05*inch))  # Reduced from 0.1
         
-        # Education
+        # Education - compact
         if resume_json.get("education"):
             story.append(Paragraph("<b>Education</b>", self.heading_style))
             for edu in resume_json["education"]:
@@ -134,7 +146,7 @@ class PDFGenerator:
                     story.append(Paragraph(edu_line, self.body_style))
                 else:
                     story.append(Paragraph(str(edu), self.body_style))
-                story.append(Spacer(1, 0.1*inch))
+            # No spacer after education (last section)
         
         doc.build(story)
         return temp_path

@@ -126,10 +126,12 @@ WRITING STYLE RULES (CRITICAL):
 - Review your response and ensure no em dashes
 
 EDITING APPROACH:
-- Summary: Add 1-2 job-relevant keywords, but keep 90% of original text
-- Experience bullets: Only modify if missing critical keywords. Keep original achievements/metrics.
+- Summary: Add 1-2 job-relevant keywords, but keep 90% of original text. Keep it concise (2-3 sentences max).
+- Experience bullets: Only modify if missing critical keywords. Keep original achievements/metrics. Limit to 2-3 most relevant bullets per role.
 - Skills: Add missing job-relevant skills IF they genuinely exist in experience. Don't fabricate.
+- Projects: You MAY add 1-2 new relevant projects that align with the job requirements. These should be realistic, feasible projects that demonstrate skills mentioned in the job description. Format: name and 2-3 bullets describing the project. Only add if it significantly strengthens the resume match.
 - Reorder: Move most relevant experience/projects first, but keep content unchanged.
+- ONE PAGE LIMIT: Ensure the resume fits on ONE page. Prioritize most relevant content. If needed, reduce bullets or combine similar points.
 
 Base Resume JSON:
 {json.dumps(base_resume_json, indent=2)}
