@@ -1,11 +1,18 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function ParticleBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -13,6 +20,7 @@ export default function ParticleBackground() {
     if (!ctx) return;
 
     const resize = () => {
+      if (typeof window === 'undefined') return;
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
@@ -78,9 +86,15 @@ export default function ParticleBackground() {
     animate();
 
     return () => {
-      window.removeEventListener('resize', resize);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', resize);
+      }
     };
-  }, []);
+  }, [mounted]);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <canvas
