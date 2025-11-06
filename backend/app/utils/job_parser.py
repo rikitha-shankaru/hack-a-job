@@ -90,7 +90,11 @@ class JobParser:
             return None
         
         # Additional validation: reject obviously non-job titles
-        title = job.get("title", "").lower()
+        # Safely handle None values
+        title_str = job.get("title") or ""
+        if not title_str:
+            return None
+        title = title_str.lower()
         if len(title.split()) < 2:  # Too short to be a job title
             return None
         

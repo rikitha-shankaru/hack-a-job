@@ -353,11 +353,12 @@ class JobService:
         Simplified job validation - only reject clearly invalid jobs
         Be lenient and accept most jobs from known job boards
         """
-        title = job_data.get("title", "").strip()
-        company = job_data.get("company", "").strip()
-        jd_text = job_data.get("jd_text", "")
-        url = job_data.get("url", "").lower()
-        job_location = job_data.get("location", "").lower() if job_data.get("location") else ""
+        # Safely handle None values - convert to empty string before calling .strip()
+        title = (job_data.get("title") or "").strip()
+        company = (job_data.get("company") or "").strip()
+        jd_text = job_data.get("jd_text") or ""
+        url = (job_data.get("url") or "").lower()
+        job_location = (job_data.get("location") or "").lower() if job_data.get("location") else ""
         
         # CRITICAL CHECKS ONLY - reject if missing essential data
         if not title:
