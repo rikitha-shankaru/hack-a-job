@@ -107,12 +107,20 @@ class JobService:
         if not url:
             return None
         
+        # Filter out fields that don't exist in Job model
+        valid_fields = {
+            "company", "title", "location", "region", "remote", 
+            "date_posted", "valid_through", "salary", "url", 
+            "source", "jd_text", "jd_keywords"
+        }
+        filtered_data = {k: v for k, v in job_data.items() if k in valid_fields}
+        
         # Check if job already exists
         existing = db.query(Job).filter(Job.url == url).first()
         
         if existing:
             # Update existing job
-            for key, value in job_data.items():
+            for key, value in filtered_data.items():
                 if hasattr(existing, key) and value is not None:
                     setattr(existing, key, value)
             db.commit()
@@ -122,7 +130,7 @@ class JobService:
             # Create new job
             job = Job(
                 id=uuid.uuid4(),
-                **job_data
+                **filtered_data
             )
             db.add(job)
             db.commit()
