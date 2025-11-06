@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
 
@@ -50,7 +50,7 @@ export default function Home() {
     }
   };
 
-  const handleResumeSubmit = async () => {
+  const handleResumeSubmit = useCallback(async () => {
     if (!formData.email) {
       setError('Please enter your email');
       return;

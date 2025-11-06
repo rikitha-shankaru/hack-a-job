@@ -1,11 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api import profile, jobs, tailor, email, autofill
 from app.database import engine, Base
 import os
 
-app = FastAPI(title="Hack-A-Job API", version="1.0.0")
+app = FastAPI(
+    title="Hack-A-Job API", 
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc"
+)
+
+# Compression middleware (reduces response size by 70-90%)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # CORS middleware
 app.add_middleware(

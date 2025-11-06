@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import apiClient from '@/lib/api';
 import Link from 'next/link';
+import { JobCardSkeleton, ProgressBarSkeleton } from '@/components/SkeletonLoader';
 
 interface Job {
   id: string;
@@ -184,9 +185,9 @@ export default function JobsPage() {
     } finally {
       setTailoringJobId(null);
     }
-  };
+  }, []);
 
-  const checkCoverLetterRequired = (jdText?: string): boolean => {
+  const checkCoverLetterRequired = useCallback((jdText?: string): boolean => {
     if (!jdText) return false;
     const text = jdText.toLowerCase();
     return text.includes('cover letter') || text.includes('cover letter required') || 
@@ -254,6 +255,9 @@ export default function JobsPage() {
           </button>
           
           {loading && (
+            <ProgressBarSkeleton />
+          )}
+          {loading && memoizedJobs.length > 0 && (
             <div className="mt-6 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700 animate-pulse">{status}</span>
@@ -271,14 +275,23 @@ export default function JobsPage() {
           )}
         </form>
 
-        {jobs.length > 0 && (
+        {memoizedJobs.length > 0 && (
           <div className="mb-6 text-gray-700 text-xl font-semibold">
-            Found <span className="text-purple-600">{jobs.length}</span> job{jobs.length !== 1 ? 's' : ''}
+            Found <span className="text-purple-600">{memoizedJobs.length}</span> job{memoizedJobs.length !== 1 ? 's' : ''}
+          </div>
+        )}
+
+        {/* Show skeleton loaders while loading */}
+        {loading && memoizedJobs.length === 0 && (
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <JobCardSkeleton key={i} />
+            ))}
           </div>
         )}
 
         <div className="space-y-4">
-          {jobs.map((job, index) => {
+          {memoizedJobs.map((job, index) => {
             const needsCoverLetter = checkCoverLetterRequired(job.jd_text);
             const isTailoring = tailoringJobId === job.id;
             const assets = tailoredAssets[job.id];
