@@ -20,10 +20,25 @@ class JobService:
         db: Session
     ) -> List[Job]:
         """Search jobs using Google Custom Search API and store them"""
-        # Build search query - add job-specific keywords to filter results
-        search_query = f"{query} job OR careers OR hiring OR 'apply now' OR 'we are hiring'"
+        # Build search query - target job postings specifically
+        # Focus on job boards and career pages
+        base_query = f'"{query}" (job OR "careers" OR "hiring" OR "apply now" OR "we are hiring" OR "open position")'
         if location:
-            search_query += f" {location}"
+            base_query += f' "{location}"'
+        
+        # Prioritize known job board sites
+        job_board_sites = [
+            'site:linkedin.com/jobs',
+            'site:indeed.com',
+            'site:glassdoor.com',
+            'site:greenhouse.io',
+            'site:lever.co',
+            'site:monster.com',
+            'site:ziprecruiter.com'
+        ]
+        
+        # Use first job board site in query, or general search
+        search_query = f"{base_query} {job_board_sites[0]}" if job_board_sites else base_query
         
         # Map recency to Google CSE dateRestrict format
         date_mapping = {
