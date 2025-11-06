@@ -481,5 +481,21 @@ Answer:"""
         # Check for new titles (excluding None/empty strings)
         new_titles = tailored_titles - base_titles
         if new_titles:
-            raise ValueError(f"Cannot add new titles to resume: {new_titles}")
+            raise ValueError(f"Cannot add new job titles to resume: {new_titles}")
+        
+        # Validate projects - NO NEW PROJECTS ALLOWED
+        base_projects = base.get("projects", [])
+        tailored_projects = tailored.get("projects", [])
+        
+        if not isinstance(base_projects, list) or not isinstance(tailored_projects, list):
+            raise ValueError("Projects must be a list")
+        
+        # Extract project names
+        base_project_names = {proj.get("name") for proj in base_projects if proj.get("name")}
+        tailored_project_names = {proj.get("name") for proj in tailored_projects if proj.get("name")}
+        
+        # Check for new projects
+        new_projects = tailored_project_names - base_project_names
+        if new_projects:
+            raise ValueError(f"Cannot add new projects to resume: {new_projects}")
 
