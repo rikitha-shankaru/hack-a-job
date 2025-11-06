@@ -16,8 +16,9 @@ async def run_complete_workflow(
 ):
     """Run the complete LangGraph workflow: Parse → Search → Tailor → Cover Letter → Autofill → Email"""
     try:
-        # Validate user and job exist
-        user = db.query(User).filter(User.id == request.userId).first()
+        # Validate user and job exist with optimized query (eager loading)
+        from sqlalchemy.orm import joinedload
+        user = db.query(User).options(joinedload(User.profile)).filter(User.id == request.userId).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         

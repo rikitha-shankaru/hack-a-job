@@ -30,10 +30,19 @@ def get_db():
     finally:
         db.close()
 
+# Import User for type hints (moved to avoid circular import)
+try:
+    from app.models import User
+except ImportError:
+    # Models not loaded yet, will be available at runtime
+    User = None
+
 # Optimize queries with eager loading
 def optimize_user_query(query):
     """Optimize user queries with eager loading to prevent N+1"""
-    return query.options(joinedload(User.profile))
+    if User:
+        return query.options(joinedload(User.profile))
+    return query
 
 def optimize_job_query(query):
     """Optimize job queries"""

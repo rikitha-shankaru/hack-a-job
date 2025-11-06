@@ -192,7 +192,10 @@ export default function JobsPage() {
     const text = jdText.toLowerCase();
     return text.includes('cover letter') || text.includes('cover letter required') || 
            text.includes('please include a cover letter');
-  };
+  }, []);
+
+  // Memoize jobs list to prevent unnecessary re-renders
+  const memoizedJobs = useMemo(() => jobs, [jobs]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 py-12 px-4">
