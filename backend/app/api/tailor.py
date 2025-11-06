@@ -77,11 +77,16 @@ async def tailor_resume(
         # Generate tailored assets
         from app.services.tailor_service import TailorService
         service = TailorService()
-        assets = await service.generate_tailored_assets(
-            user=user,
-            job=job,
-            db=db
-        )
+        
+        try:
+            assets = await service.generate_tailored_assets(
+                user=user,
+                job=job,
+                db=db
+            )
+        except ValueError as e:
+            # Convert ValueError to HTTPException with proper status code
+            raise HTTPException(status_code=400, detail=str(e))
         
         return TailorResponse(
             assetsId=assets.id,
@@ -92,4 +97,8 @@ async def tailor_resume(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the full error for debugging
+        import traceback
+        print(f"Error in tailor_resume: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

@@ -63,34 +63,61 @@ class TailorService:
         original_latex_template = user.profile.resume_latex_template if user.profile else None
         
         # Generate LaTeX from tailored resume
-        latex_content = await self.latex_generator.generate_latex(
-            resume_json=tailored_resume,
-            original_latex_template=original_latex_template
-        )
+        try:
+            latex_content = await self.latex_generator.generate_latex(
+                resume_json=tailored_resume,
+                original_latex_template=original_latex_template
+            )
+        except Exception as e:
+            print(f"Error generating LaTeX: {e}")
+            # Fallback to ReportLab if LaTeX generation fails
+            latex_content = None
         
         # Compile LaTeX to PDF
         uploads_dir = "uploads/pdfs"
         os.makedirs(uploads_dir, exist_ok=True)
         resume_pdf_output = os.path.join(uploads_dir, f"resume_{user.id}_{job.id}.pdf")
         
-        try:
-            resume_pdf_path = await self.latex_compiler.compile_latex_to_pdf(
-                latex_content=latex_content,
-                output_filename=resume_pdf_output
-            )
-        except RuntimeError as e:
-            # Fallback to ReportLab if LaTeX compilation fails
-            resume_pdf_path = await self.pdf_generator.generate_resume_pdf(tailored_resume)
-            resume_pdf_output = os.path.join(uploads_dir, f"resume_{user.id}_{job.id}.pdf")
-            import shutil
-            shutil.copy2(resume_pdf_path, resume_pdf_output)
+        resume_pdf_path = None
+        if latex_content:
+            try:
+                resume_pdf_path = await self.latex_compiler.compile_latex_to_pdf(
+                    latex_content=latex_content,
+                    output_filename=resume_pdf_output
+                )
+            except (RuntimeError, FileNotFoundError, Exception) as e:
+                print(f"LaTeX compilation failed: {e}, falling back to ReportLab")
+                resume_pdf_path = None
+        
+        # Fallback to ReportLab if LaTeX compilation fails or wasn't attempted
+        if not resume_pdf_path:
+            try:
+                resume_pdf_path = await self.pdf_generator.generate_resume_pdf(tailored_resume)
+                resume_pdf_output = os.path.join(uploads_dir, f"resume_{user.id}_{job.id}.pdf")
+                import shutil
+                if os.path.exists(resume_pdf_path):
+                    shutil.copy2(resume_pdf_path, resume_pdf_output)
+                else:
+                    raise ValueError(f"PDF generation failed: {resume_pdf_path} does not exist")
+            except Exception as e:
+                raise ValueError(f"Failed to generate resume PDF: {str(e)}")
         
         # Generate cover letter PDF (using ReportLab for now)
-        cover_pdf_path = await self.pdf_generator.generate_cover_letter_pdf(cover_letter)
+        try:
+            cover_pdf_path = await self.pdf_generator.generate_cover_letter_pdf(cover_letter)
+        except Exception as e:
+            raise ValueError(f"Failed to generate cover letter PDF: {str(e)}")
         
         # Store PDFs and get URLs
-        resume_pdf_url = self._store_pdf(resume_pdf_output, f"resume_{user.id}_{job.id}.pdf")
-        cover_pdf_url = self._store_pdf(cover_pdf_path, f"cover_{user.id}_{job.id}.pdf")
+        try:
+            resume_pdf_url = self._store_pdf(resume_pdf_output, f"resume_{user.id}_{job.id}.pdf")
+        except Exception as e:
+            raise ValueError(f"Failed to store resume PDF: {str(e)}")
+        
+        try:
+            cover_pdf_url = self._store_pdf(cover_pdf_path, f"cover_{user.id}_{job.id}.pdf")
+        except Exception as e:
+            raise ValueError(f"Failed to store cover letter PDF: {str(e)}")
         
         # Calculate diffs
         diffs = self._calculate_diffs(base_resume_json, tailored_resume)
