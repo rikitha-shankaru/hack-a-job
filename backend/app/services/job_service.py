@@ -20,8 +20,8 @@ class JobService:
         db: Session
     ) -> List[Job]:
         """Search jobs using Google Custom Search API and store them"""
-        # Build search query
-        search_query = f"{query}"
+        # Build search query - add job-specific keywords to filter results
+        search_query = f"{query} job OR careers OR hiring OR 'apply now' OR 'we are hiring'"
         if location:
             search_query += f" {location}"
         
@@ -56,6 +56,10 @@ class JobService:
                 if not url:
                     continue
                 
+                # Filter out non-job URLs
+                if self._is_non_job_url(url):
+                    continue
+                
                 try:
                     # Fetch HTML
                     response = await client.get(url, follow_redirects=True)
@@ -64,7 +68,7 @@ class JobService:
                     # Parse job posting
                     job_data = await self.parser.parse_job_posting(url, html)
                     
-                    if job_data:
+                    if job_data and self._is_valid_job(job_data):
                         # Store or update job
                         job = self._upsert_job(job_data, db)
                         if job:
@@ -136,4 +140,67 @@ class JobService:
             db.commit()
             db.refresh(job)
             return job
+    
+    def _is_non_job_url(self, url: str) -> bool:
+        """Filter out URLs that are clearly not job postings"""
+        url_lower = url.lower()
+        
+        # Exclude common non-job domains
+        exclude_patterns = [
+            'facebook.com', 'twitter.com', 'instagram.com', 'linkedin.com/company',
+            'youtube.com', 'reddit.com', 'wikipedia.org', 'news', 'blog',
+            '.gov', '.edu', 'consulado', 'police', 'park', 'library', 'museum',
+            'aquarium', 'botanic', 'school', 'university', 'college', 'law.',
+            'choosechicago.com/event', 'nba.com', 'mlb.com', 'nhl.com',
+            'sheddaquarium', 'chipublib', 'chicagoparkdistrict', 'cps.edu',
+            'chicago.gov', 'ymca', 'facc-chicago.com/events', 'letourdeshore',
+            'episcopalchicago', 'blockclubchicago', 'southsideweekly',
+            'abc7chicago', 'fox32chicago', '6figr.com', 'levels.fyi'
+        ]
+        
+        return any(pattern in url_lower for pattern in exclude_patterns)
+    
+    def _is_valid_job(self, job_data: dict) -> bool:
+        """Validate that job data represents an actual job posting"""
+        title = job_data.get("title", "").lower()
+        company = job_data.get("company", "")
+        jd_text = job_data.get("jd_text", "")
+        
+        # Reject generic titles
+        generic_titles = [
+            'homepage', 'home page', 'welcome', 'chicago', 'sorry, you have been blocked',
+            'just a moment', 'headlines', 'upcoming events', 'search salaries',
+            'block club chicago', 'sidetrack chicago', 'city colleges of chicago',
+            'chicago public schools', 'chicago public library', 'chicago park district',
+            'alliance française', 'the university of chicago', 'chicago blackhawks',
+            'chicago bulls', 'white sox', 'abc7chicago', 'fox32chicago'
+        ]
+        
+        if any(gt in title for gt in generic_titles):
+            return False
+        
+        # Must have a meaningful title (more than 3 words, less than 100 chars)
+        title_words = title.split()
+        if len(title_words) < 3 or len(title) > 100:
+            return False
+        
+        # Must have company OR job description
+        if not company and not jd_text:
+            return False
+        
+        # Job description should contain job-related keywords
+        if jd_text:
+            jd_lower = jd_text.lower()
+            job_keywords = ['responsibilities', 'requirements', 'qualifications', 
+                          'experience', 'skills', 'apply', 'position', 'role',
+                          'salary', 'benefits', 'full-time', 'part-time', 'remote']
+            if not any(keyword in jd_lower for keyword in job_keywords):
+                # If no job keywords, reject unless it's from a known job board
+                known_job_boards = ['greenhouse', 'lever', 'linkedin.com/jobs', 
+                                   'indeed.com', 'glassdoor.com', 'monster.com',
+                                   'ziprecruiter.com', 'careers.', 'jobs.']
+                if not any(board in job_data.get("url", "").lower() for board in known_job_boards):
+                    return False
+        
+        return True
 

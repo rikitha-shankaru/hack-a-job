@@ -89,6 +89,17 @@ class JobParser:
         if not job.get("title") or not job.get("url"):
             return None
         
+        # Additional validation: reject obviously non-job titles
+        title = job.get("title", "").lower()
+        if len(title.split()) < 2:  # Too short to be a job title
+            return None
+        
+        # Reject generic page titles
+        generic_patterns = ['homepage', 'home page', 'welcome', 'just a moment', 
+                          'sorry, you have been blocked', 'headlines', 'upcoming events']
+        if any(pattern in title for pattern in generic_patterns):
+            return None
+        
         return job
     
     def _safe_get(self, data: Dict, *keys) -> Optional[str]:
