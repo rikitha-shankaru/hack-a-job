@@ -161,14 +161,14 @@ class JobService:
                 try:
                     # Fetch HTML with shorter timeout for speed
                     response = await client.get(url, follow_redirects=True, timeout=10.0)
-                    html = response.text
+                    html = response.text if response.text else ""
                     
                     # Quick check for unavailable jobs before parsing
                     # BUT: Be more specific - don't skip LinkedIn/Indeed jobs based on generic text
                     # These sites often have "unavailable" text in their UI that doesn't mean the job is closed
                     is_linkedin_or_indeed = 'linkedin.com/jobs' in url or 'indeed.com' in url
                     
-                    if not is_linkedin_or_indeed:
+                    if not is_linkedin_or_indeed and html:
                         # For other sites, check for unavailable indicators
                         html_lower = html.lower()
                         unavailable_indicators = [
@@ -196,9 +196,13 @@ class JobService:
                     if job_data and self._is_valid_job(job_data, location_filter=location):
                         # Check for duplicates by title+company
                         is_duplicate = False
-                        title_company_key = f"{job_data.get('title', '').lower()}_{job_data.get('company', '').lower()}"
+                        title = (job_data.get('title') or '').lower()
+                        company = (job_data.get('company') or '').lower()
+                        title_company_key = f"{title}_{company}"
                         for existing_job in jobs:
-                            existing_key = f"{existing_job.title.lower() if existing_job.title else ''}_{existing_job.company.lower() if existing_job.company else ''}"
+                            existing_title = (existing_job.title or '').lower() if existing_job.title else ''
+                            existing_company = (existing_job.company or '').lower() if existing_job.company else ''
+                            existing_key = f"{existing_title}_{existing_company}"
                             if title_company_key == existing_key and title_company_key:
                                 is_duplicate = True
                                 break
@@ -382,12 +386,14 @@ class JobService:
             title_lower = title.lower()
             generic_page_titles = [
                 'homepage', 'home page', 'welcome', 'sign in', 'log in', 'login',
-                'privacy policy', 'terms of service', 'about us', 'contact us'
+                'privacy policy', 'terms of service', 'about us', 'contact us',
+                'request blocked', 'help us protect', 'blocked', 'access denied',
+                'page not found', '404', 'error', 'forbidden'
             ]
             
-            # Reject generic page titles
-            if title_lower in generic_page_titles:
-                print(f"❌ Rejecting: Generic page title '{title}' - {url[:50]}")
+            # Reject generic page titles and error pages
+            if any(generic in title_lower for generic in generic_page_titles):
+                print(f"❌ Rejecting: Generic/error page title '{title}' - {url[:50]}")
                 return False
             
             # Check for unavailable jobs
@@ -423,13 +429,15 @@ class JobService:
             print(f"❌ Rejecting: Title too short '{title}' - {url[:50]}")
             return False
         
-        # Reject generic page titles
+        # Reject generic page titles and error pages
         generic_titles = [
             'homepage', 'home page', 'welcome', 'just a moment',
-            'sorry, you have been blocked', 'headlines', 'upcoming events'
+            'sorry, you have been blocked', 'headlines', 'upcoming events',
+            'request blocked', 'help us protect', 'blocked', 'access denied',
+            'page not found', '404', 'error', 'forbidden'
         ]
-        if title_lower in generic_titles:
-            print(f"❌ Rejecting: Generic title '{title}' - {url[:50]}")
+        if any(generic in title_lower for generic in generic_titles):
+            print(f"❌ Rejecting: Generic/error title '{title}' - {url[:50]}")
             return False
         
         # Reject if no company AND no job description

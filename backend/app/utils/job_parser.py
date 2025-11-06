@@ -12,6 +12,10 @@ class JobParser:
     
     async def parse_job_posting(self, url: str, html: str) -> Optional[Dict[str, Any]]:
         """Parse job posting from HTML, preferring JSON-LD"""
+        # Safely handle None html
+        if not html:
+            return None
+        
         # Try JSON-LD first
         job_data = self._extract_jobposting_jsonld(html)
         
@@ -83,7 +87,8 @@ class JobParser:
             job["jd_text"] = self._extract_description_html(soup)
             job["jd_keywords"] = self._extract_keywords(job["jd_text"])
             job["date_posted"] = None
-            job["remote"] = "remote" in html.lower()
+            # Safely handle None html
+            job["remote"] = "remote" in (html or "").lower()
         
         # Ensure required fields
         if not job.get("title") or not job.get("url"):
