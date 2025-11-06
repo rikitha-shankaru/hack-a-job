@@ -38,10 +38,12 @@ class JobService:
         }
         date_restrict = date_mapping.get(recency, "w2")
         
-        # Search Google CSE (paginate 2-3 pages)
+        # Search Google CSE (paginate 3-4 pages to get more results)
         all_items = []
-        for start in [1, 11, 21]:
+        for start in [1, 11, 21, 31]:
             items = await self._search_cse(search_query, date_restrict, start)
+            if not items:  # Stop if no more results
+                break
             all_items.extend(items)
         
         # Deduplicate by URL
@@ -56,7 +58,8 @@ class JobService:
         # Fetch and parse each job posting
         jobs = []
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for item in unique_items[:30]:  # Limit to 30 jobs
+            # Process more items to account for filtering
+            for item in unique_items[:50]:  # Process up to 50, filter will reduce
                 url = item.get("link", "")
                 if not url:
                     continue
@@ -170,18 +173,38 @@ class JobService:
         title = job_data.get("title", "").lower()
         company = job_data.get("company", "")
         jd_text = job_data.get("jd_text", "")
+        url = job_data.get("url", "").lower()
         
-        # Reject generic titles
+        # Check for expired/unavailable job indicators
+        unavailable_indicators = [
+            'no longer available', 'job is no longer available', 'position has been filled',
+            'this job is closed', 'application closed', 'position closed', 'no longer accepting',
+            'expired', 'unavailable', 'filled', 'closed position'
+        ]
+        
+        if jd_text:
+            jd_lower = jd_text.lower()
+            if any(indicator in jd_lower for indicator in unavailable_indicators):
+                return False
+        
+        # Reject generic/nonsensical titles
         generic_titles = [
             'homepage', 'home page', 'welcome', 'chicago', 'sorry, you have been blocked',
             'just a moment', 'headlines', 'upcoming events', 'search salaries',
             'block club chicago', 'sidetrack chicago', 'city colleges of chicago',
             'chicago public schools', 'chicago public library', 'chicago park district',
             'alliance française', 'the university of chicago', 'chicago blackhawks',
-            'chicago bulls', 'white sox', 'abc7chicago', 'fox32chicago'
+            'chicago bulls', 'white sox', 'abc7chicago', 'fox32chicago',
+            'motorola solutions jobs', 'women in tech', 'big red bulletin',
+            'test lead (aws cloud migration)'  # This might be a duplicate/expired listing
         ]
         
         if any(gt in title for gt in generic_titles):
+            return False
+        
+        # Reject titles with emojis (usually not real job titles)
+        import re
+        if re.search(r'[🐻🎯🔥💼🚀]', job_data.get("title", "")):
             return False
         
         # Must have a meaningful title (more than 3 words, less than 100 chars)
@@ -189,22 +212,44 @@ class JobService:
         if len(title_words) < 3 or len(title) > 100:
             return False
         
+        # Title should look like a job title (not just company name + "jobs")
+        if title.endswith(' jobs') and len(title_words) <= 3:
+            return False
+        
         # Must have company OR job description
         if not company and not jd_text:
             return False
+        
+        # Company name shouldn't be generic
+        if company and company.lower() in ['health care', 'healthcare', 'linkedin', 'indeed']:
+            if not jd_text or len(jd_text) < 200:  # Need substantial job description
+                return False
         
         # Job description should contain job-related keywords
         if jd_text:
             jd_lower = jd_text.lower()
             job_keywords = ['responsibilities', 'requirements', 'qualifications', 
                           'experience', 'skills', 'apply', 'position', 'role',
-                          'salary', 'benefits', 'full-time', 'part-time', 'remote']
+                          'salary', 'benefits', 'full-time', 'part-time', 'remote',
+                          'job description', 'we are looking', 'candidate', 'must have']
             if not any(keyword in jd_lower for keyword in job_keywords):
                 # If no job keywords, reject unless it's from a known job board
                 known_job_boards = ['greenhouse', 'lever', 'linkedin.com/jobs', 
                                    'indeed.com', 'glassdoor.com', 'monster.com',
                                    'ziprecruiter.com', 'careers.', 'jobs.']
-                if not any(board in job_data.get("url", "").lower() for board in known_job_boards):
+                if not any(board in url for board in known_job_boards):
+                    return False
+        
+        # Check for future dates (likely parsing errors)
+        date_posted = job_data.get("date_posted")
+        if date_posted:
+            from datetime import date
+            today = date.today()
+            if date_posted > today:
+                # Future date is suspicious - might be bad parsing
+                # Only reject if it's way in the future (more than 7 days)
+                from datetime import timedelta
+                if date_posted > today + timedelta(days=7):
                     return False
         
         return True

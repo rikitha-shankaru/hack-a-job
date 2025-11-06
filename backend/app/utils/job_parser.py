@@ -218,6 +218,16 @@ class JobParser:
     
     def _extract_description_html(self, soup: BeautifulSoup) -> Optional[str]:
         """Extract job description from HTML"""
+        # Check for expired/unavailable indicators first
+        page_text = soup.get_text().lower()
+        unavailable_indicators = [
+            'no longer available', 'job is no longer available', 'position has been filled',
+            'this job is closed', 'application closed', 'position closed', 'no longer accepting',
+            'expired', 'unavailable', 'filled', 'closed position', 'sorry this job'
+        ]
+        if any(indicator in page_text for indicator in unavailable_indicators):
+            return None  # Don't extract description for unavailable jobs
+        
         selectors = ['.job-description', '.description', '[data-testid*="description"]', 'main']
         for selector in selectors:
             elem = soup.select_one(selector)
