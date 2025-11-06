@@ -271,14 +271,14 @@ export default function JobsPage() {
             <ProgressBarSkeleton />
           )}
           {loading && memoizedJobs.length > 0 && (
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 space-y-3 animate-fade-in-up">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700 animate-pulse">{status}</span>
-                <span className="text-sm font-bold text-purple-600">{Math.round(progress)}%</span>
+                <span className="text-sm font-bold gradient-text">{Math.round(progress)}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
+              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
                 <div
-                  className="bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500 h-3 rounded-full transition-all duration-300 ease-out relative overflow-hidden"
+                  className="bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500 h-4 rounded-full transition-all duration-300 ease-out relative overflow-hidden animate-gradient"
                   style={{ width: `${progress}%` }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
@@ -345,7 +345,8 @@ export default function JobsPage() {
                           {job.jd_keywords.slice(0, 8).map((keyword, idx) => (
                             <span
                               key={idx}
-                              className="px-3 py-1 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 text-xs rounded-full font-medium border border-purple-200"
+                              className="px-3 py-1 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 text-xs rounded-full font-medium border border-purple-200 hover:scale-110 hover:shadow-md transition-all cursor-default animate-scale-in"
+                              style={{ animationDelay: `${idx * 30}ms` }}
                             >
                               {keyword}
                             </span>
