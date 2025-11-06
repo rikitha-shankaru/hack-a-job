@@ -441,10 +441,6 @@ class JobService:
                 print(f"❌ Rejecting: Future date {date_posted} - {url[:50]}")
                 return False
         
-        # Accept if we got here
-        print(f"✅ Accepting: '{title}' at {company or 'Unknown'}")
-        return True
-        
         # Location filtering - if location specified, job must match OR be remote
         # Remote jobs are always included regardless of location filter
         if location_filter:
