@@ -18,7 +18,11 @@ class ProfileService:
         self,
         resume_text: Optional[str] = None,
         resume_url: Optional[str] = None,
-        resume_pdf_path: Optional[str] = None
+        resume_pdf_path: Optional[str] = None,
+        role_target: Optional[str] = None,
+        level_target: Optional[str] = None,
+        name: Optional[str] = None,
+        email: Optional[str] = None
     ) -> Dict[str, Any]:
         """Parse resume text or PDF and extract structured data"""
         resume_pdf_url = None
@@ -52,15 +56,22 @@ class ProfileService:
                 response = await client.get(resume_url)
                 resume_text = response.text
         
-        if not resume_text:
-            raise ValueError("Either resumeText, resumeFileUrl, or resumeFile must be provided")
-        
-        # Parse resume using Gemini for structured extraction
-        # If we already parsed it for LaTeX conversion, reuse it
-        if temp_resume_json:
-            structured_resume = temp_resume_json
+        # If no resume provided, generate one using AI
+        if not resume_text and not resume_pdf_path and not resume_url:
+            # Generate resume based on job profile
+            structured_resume = await self._generate_resume_from_profile(
+                role_target=role_target,
+                level_target=level_target,
+                name=name,
+                email=email
+            )
         else:
-            structured_resume = await self.gemini_client.parse_resume(resume_text)
+            # Parse resume using Gemini for structured extraction
+            # If we already parsed it for LaTeX conversion, reuse it
+            if temp_resume_json:
+                structured_resume = temp_resume_json
+            else:
+                structured_resume = await self.gemini_client.parse_resume(resume_text)
         
         # Extract skills, metrics, links
         skills = structured_resume.get("skills", [])
@@ -81,6 +92,93 @@ class ProfileService:
             "links": links,
             "resume_vector": resume_vector
         }
+    
+    async def _generate_resume_from_profile(
+        self,
+        role_target: Optional[str] = None,
+        level_target: Optional[str] = None,
+        name: Optional[str] = None,
+        email: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Generate a realistic resume using AI based on job profile"""
+        prompt = f"""Generate a realistic, professional resume JSON for a candidate applying for this role.
+
+Role Target: {role_target or 'Software Engineer'}
+Level: {level_target or 'Mid-level'}
+Name: {name or 'John Doe'}
+Email: {email or 'john.doe@email.com'}
+
+CRITICAL REQUIREMENTS:
+1. Make it REALISTIC - use real company names, realistic project names, believable metrics
+2. Match the role and level appropriately
+3. Include relevant skills, experience, projects, and education
+4. Use realistic dates (past dates only, nothing in the future)
+5. Include 2-3 work experiences, 1-2 projects, education, and skills
+6. All metrics should be believable (e.g., "improved performance by 30%", "handled 10K+ requests/day")
+7. Use actual technology names (React, Python, AWS, etc.) that match the role
+
+Output ONLY valid JSON with this structure:
+{{
+  "name": "string",
+  "email": "string",
+  "phone": "string (optional)",
+  "location": "string (optional)",
+  "summary": "string (2-3 sentences)",
+  "skills": ["skill1", "skill2", ...],
+  "experience": [
+    {{
+      "company": "string",
+      "title": "string",
+      "start": "string (e.g., 'Jan 2020')",
+      "end": "string (e.g., 'Present' or 'Dec 2022')",
+      "bullets": ["achievement 1", "achievement 2", ...]
+    }}
+  ],
+  "projects": [
+    {{
+      "name": "string",
+      "bullets": ["description 1", "description 2"]
+    }}
+  ],
+  "education": [
+    {{
+      "degree": "string",
+      "school": "string",
+      "major": "string (optional)",
+      "start": "string",
+      "end": "string",
+      "gpa": "string (optional)"
+    }}
+  ]
+}}
+
+Make it realistic and professional. Match the role and level."""
+        
+        try:
+            response = await self.gemini_client._generate_with_retry(prompt)
+            
+            if not response or not hasattr(response, 'text'):
+                raise ValueError("Empty response from Gemini API")
+            
+            result_text = response.text.strip()
+            
+            # Clean up response
+            if result_text.startswith("```json"):
+                result_text = result_text[7:]
+            if result_text.startswith("```"):
+                result_text = result_text[3:]
+            if result_text.endswith("```"):
+                result_text = result_text[:-3]
+            result_text = result_text.strip()
+            
+            try:
+                resume_json = json.loads(result_text)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
+            
+            return resume_json
+        except Exception as e:
+            raise ValueError(f"Failed to generate resume: {str(e)}")
     
     async def _generate_latex_template_from_pdf(self, pdf_data: Dict[str, Any]) -> str:
         """Generate a basic LaTeX template from PDF structure analysis"""

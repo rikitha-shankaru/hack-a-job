@@ -56,13 +56,27 @@ async def ingest_profile(
                 content = await resumeFile.read()
                 await f.write(content)
         
-        # Parse resume
+        # Parse resume or generate if none provided
         service = ProfileService()
-        resume_data = await service.parse_resume(
-            resume_text=resumeText,
-            resume_url=None,
-            resume_pdf_path=pdf_path
-        )
+        
+        # If no resume provided, generate one
+        if not pdf_path and not resumeText:
+            # Generate resume using AI
+            resume_data = await service.parse_resume(
+                resume_text=None,
+                resume_url=None,
+                resume_pdf_path=None,
+                role_target=roleTarget,
+                level_target=levelTarget,
+                name=name,
+                email=email
+            )
+        else:
+            resume_data = await service.parse_resume(
+                resume_text=resumeText,
+                resume_url=None,
+                resume_pdf_path=pdf_path
+            )
         
         # Create or update profile
         profile = db.query(Profile).filter(Profile.user_id == user.id).first()
