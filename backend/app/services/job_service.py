@@ -7,10 +7,14 @@ import httpx
 import json
 from datetime import datetime, date as date_type
 import uuid
+import asyncio
+import time
 
 class JobService:
     def __init__(self):
         self.parser = JobParser()
+        self.last_request_time = 0
+        self.min_request_interval = 0.5  # Minimum 500ms between requests to avoid rate limits
     
     async def search_and_store_jobs(
         self,
@@ -88,9 +92,10 @@ class JobService:
         seen_urls = set()
         
         # Search job boards first (better quality, faster)
-        # Search VERY aggressively to get 50-100+ results
-        for search_query in job_board_queries[:10]:  # Top 10 job boards (maximum coverage)
-            for start in [1, 11, 21, 31]:  # 4 pages per board (40 results each) = 400 potential results
+        # Rate limit: Google CSE allows ~100 queries/day free tier, so be smart
+        # Search strategically: fewer queries but better quality
+        for search_query in job_board_queries[:7]:  # Top 7 job boards (reduced from 10)
+            for start in [1, 11]:  # 2 pages per board (reduced from 4) = 20 results each
                 items = await self._search_cse(search_query, date_restrict, start)
                 if not items:
                     break
@@ -101,16 +106,19 @@ class JobService:
                         seen_urls.add(url)
                         all_items.append(item)
                 
-                if len(all_items) >= 300:  # Get LOTS of results for filtering
+                # Rate limit: wait between requests
+                await asyncio.sleep(self.min_request_interval)
+                
+                if len(all_items) >= 150:  # Reduced from 300
                     break
             
-            if len(all_items) >= 300:
+            if len(all_items) >= 150:
                 break
         
-        # Then search base queries for even more coverage
-        if len(all_items) < 150:
-            for search_query in base_queries:  # ALL base queries
-                for start in [1, 11, 21]:  # 3 pages each
+        # Then search base queries for more coverage (but fewer)
+        if len(all_items) < 80:
+            for search_query in base_queries[:3]:  # Only top 3 base queries (reduced)
+                for start in [1, 11]:  # 2 pages each
                     items = await self._search_cse(search_query, date_restrict, start)
                     if not items:
                         break
@@ -121,21 +129,27 @@ class JobService:
                             seen_urls.add(url)
                             all_items.append(item)
                     
-                    if len(all_items) >= 300:
+                    # Rate limit: wait between requests
+                    await asyncio.sleep(self.min_request_interval)
+                    
+                    if len(all_items) >= 150:
                         break
                 
-                if len(all_items) >= 300:
+                if len(all_items) >= 150:
                     break
         
         # all_items already deduplicated above, now process them
-        # Fetch and parse each job posting - optimize for speed
+        # Fetch and parse each job posting - optimize for speed but respect rate limits
         jobs = []
         async with httpx.AsyncClient(timeout=15.0) as client:  # Reduced timeout for speed
-            # Process MANY items to account for filtering - we want 50-100+ good jobs
-            # Process up to 300 items, filtering will reduce to quality results
-            total_items = min(len(all_items), 300)
+            # Process items to account for filtering - we want 50-100+ good jobs
+            # Process up to 150 items (reduced from 300 to avoid rate limits)
+            total_items = min(len(all_items), 150)
             
-            for idx, item in enumerate(all_items[:300]):
+            for idx, item in enumerate(all_items[:150]):
+                # Rate limit: add small delay between fetches to avoid overwhelming servers
+                if idx > 0 and idx % 10 == 0:  # Every 10 items, pause briefly
+                    await asyncio.sleep(0.2)
                 url = item.get("link", "")
                 if not url:
                     continue
@@ -200,18 +214,57 @@ class JobService:
             # The filtering will handle removing non-job URLs
         }
         
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(
-                    "https://www.googleapis.com/customsearch/v1",
-                    params=params
-                )
-                response.raise_for_status()
-                data = response.json()
-                return data.get("items", [])
-            except Exception as e:
-                print(f"Error searching CSE: {e}")
-                return []
+        # Rate limiting: ensure minimum time between requests
+        current_time = time.time()
+        time_since_last_request = current_time - self.last_request_time
+        if time_since_last_request < self.min_request_interval:
+            await asyncio.sleep(self.min_request_interval - time_since_last_request)
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            max_retries = 3
+            retry_delay = 2  # Start with 2 seconds
+            
+            for attempt in range(max_retries):
+                try:
+                    self.last_request_time = time.time()
+                    response = await client.get(
+                        "https://www.googleapis.com/customsearch/v1",
+                        params=params
+                    )
+                    
+                    # Handle rate limiting (429)
+                    if response.status_code == 429:
+                        if attempt < max_retries - 1:
+                            wait_time = retry_delay * (2 ** attempt)  # Exponential backoff: 2s, 4s, 8s
+                            print(f"Rate limited (429). Waiting {wait_time}s before retry {attempt + 1}/{max_retries}...")
+                            await asyncio.sleep(wait_time)
+                            continue
+                        else:
+                            print(f"Rate limited (429) after {max_retries} attempts. Skipping this query.")
+                            return []
+                    
+                    response.raise_for_status()
+                    data = response.json()
+                    return data.get("items", [])
+                    
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 429:
+                        if attempt < max_retries - 1:
+                            wait_time = retry_delay * (2 ** attempt)
+                            print(f"Rate limited (429). Waiting {wait_time}s before retry {attempt + 1}/{max_retries}...")
+                            await asyncio.sleep(wait_time)
+                            continue
+                        else:
+                            print(f"Rate limited (429) after {max_retries} attempts. Skipping this query.")
+                            return []
+                    else:
+                        print(f"HTTP error searching CSE: {e}")
+                        return []
+                except Exception as e:
+                    print(f"Error searching CSE: {e}")
+                    return []
+            
+            return []
     
     def _upsert_job(self, job_data: dict, db: Session) -> Optional[Job]:
         """Upsert job with deduplication by URL"""
