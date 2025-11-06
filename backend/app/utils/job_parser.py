@@ -59,8 +59,8 @@ class JobParser:
         """Normalize job data from JSON-LD or HTML"""
         job = {
             "url": url,
-            "source": self._extract_source(url),
-            "structured": structured
+            "source": self._extract_source(url)
+            # Note: 'structured' is removed - not a field in Job model
         }
         
         if jsonld_data:
