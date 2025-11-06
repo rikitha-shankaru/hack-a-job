@@ -12,6 +12,7 @@ export default function TailorPage() {
   const [workflowLoading, setWorkflowLoading] = useState(false);
   const [assets, setAssets] = useState<any>(null);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<'original' | 'tailored' | 'cover'>('tailored');
 
   const handleTailor = async () => {
     setTailorLoading(true);
@@ -241,32 +242,108 @@ export default function TailorPage() {
               </div>
             )}
 
-            {/* Download Actions */}
+            {/* PDF Previews */}
             <div className="bg-white rounded-xl shadow-xl p-8 border border-purple-100">
-              <h2 className="text-2xl font-semibold mb-6">Your Tailored Assets</h2>
-              <div className="grid md:grid-cols-2 gap-4">
+              <h2 className="text-2xl font-semibold mb-6">Preview Your Documents</h2>
+              
+              {/* Tabs for switching between documents */}
+              <div className="flex gap-2 mb-6 border-b border-gray-200">
+                {assets.originalResumePdfUrl && (
+                  <button
+                    onClick={() => setActiveTab('original')}
+                    className={`px-4 py-2 font-medium transition-colors ${
+                      activeTab === 'original'
+                        ? 'border-b-2 border-purple-600 text-purple-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    📄 Original Resume
+                  </button>
+                )}
+                <button
+                  onClick={() => setActiveTab('tailored')}
+                  className={`px-4 py-2 font-medium transition-colors ${
+                    activeTab === 'tailored'
+                      ? 'border-b-2 border-purple-600 text-purple-600'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  ✨ Tailored Resume
+                </button>
+                <button
+                  onClick={() => setActiveTab('cover')}
+                  className={`px-4 py-2 font-medium transition-colors ${
+                    activeTab === 'cover'
+                      ? 'border-b-2 border-purple-600 text-purple-600'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  ✉️ Cover Letter
+                </button>
+              </div>
+
+              {/* PDF Preview */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50" style={{ height: '800px' }}>
+                {activeTab === 'original' && assets.originalResumePdfUrl && (
+                  <iframe
+                    src={`${assets.originalResumePdfUrl}#toolbar=1`}
+                    className="w-full h-full"
+                    title="Original Resume Preview"
+                  />
+                )}
+                {activeTab === 'tailored' && assets.resumePdfUrl && (
+                  <iframe
+                    src={`${assets.resumePdfUrl}#toolbar=1`}
+                    className="w-full h-full"
+                    title="Tailored Resume Preview"
+                  />
+                )}
+                {activeTab === 'cover' && assets.coverPdfUrl && (
+                  <iframe
+                    src={`${assets.coverPdfUrl}#toolbar=1`}
+                    className="w-full h-full"
+                    title="Cover Letter Preview"
+                  />
+                )}
+              </div>
+
+              {/* Download Actions */}
+              <div className="mt-6 grid md:grid-cols-3 gap-4">
+                {assets.originalResumePdfUrl && (
+                  <a
+                    href={assets.originalResumePdfUrl}
+                    download
+                    target="_blank"
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-semibold"
+                  >
+                    <span>📄</span>
+                    Download Original
+                  </a>
+                )}
                 <a
                   href={assets.resumePdfUrl}
+                  download
                   target="_blank"
-                  className="flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl font-semibold"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-semibold"
                 >
-                  <span>📄</span>
-                  Download Resume PDF
+                  <span>✨</span>
+                  Download Tailored Resume
                 </a>
                 <a
                   href={assets.coverPdfUrl}
+                  download
                   target="_blank"
-                  className="flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl font-semibold"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-all font-semibold"
                 >
                   <span>✉️</span>
-                  Download Cover Letter PDF
+                  Download Cover Letter
                 </a>
               </div>
               <button
                 onClick={handleEmail}
                 className="w-full mt-4 px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-semibold"
               >
-                📧 Email Me Both Documents
+                📧 Email Me All Documents
               </button>
             </div>
           </div>

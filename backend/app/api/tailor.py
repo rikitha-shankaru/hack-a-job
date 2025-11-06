@@ -88,10 +88,30 @@ async def tailor_resume(
             # Convert ValueError to HTTPException with proper status code
             raise HTTPException(status_code=400, detail=str(e))
         
+        # Get backend base URL from settings or default
+        from app.config import settings
+        backend_url = getattr(settings, 'BACKEND_URL', 'http://localhost:8000')
+        
+        # Convert relative URLs to absolute URLs
+        def make_absolute_url(url: str) -> str:
+            if not url:
+                return ""
+            if url.startswith('http'):
+                return url
+            # Remove leading slash if present
+            url = url.lstrip('/')
+            return f"{backend_url}/{url}"
+        
+        # Get original resume URL
+        original_resume_url = ""
+        if user.profile and user.profile.resume_pdf_url:
+            original_resume_url = make_absolute_url(user.profile.resume_pdf_url)
+        
         return TailorResponse(
             assetsId=assets.id,
-            resumePdfUrl=assets.resume_pdf_url or "",
-            coverPdfUrl=assets.cover_pdf_url or "",
+            originalResumePdfUrl=original_resume_url,
+            resumePdfUrl=make_absolute_url(assets.resume_pdf_url or ""),
+            coverPdfUrl=make_absolute_url(assets.cover_pdf_url or ""),
             diffs=assets.resume_json.get("diffs", {})
         )
     except HTTPException:

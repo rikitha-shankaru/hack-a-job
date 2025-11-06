@@ -45,8 +45,9 @@ class TailorRequest(BaseModel):
 
 class TailorResponse(BaseModel):
     assetsId: UUID
-    resumePdfUrl: str
-    coverPdfUrl: str
+    originalResumePdfUrl: Optional[str] = None  # Original resume PDF URL
+    resumePdfUrl: str  # Tailored resume PDF URL
+    coverPdfUrl: str  # Cover letter PDF URL
     diffs: Dict[str, Any]
 
 # Email schemas
