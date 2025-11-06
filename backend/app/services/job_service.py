@@ -88,9 +88,9 @@ class JobService:
         seen_urls = set()
         
         # Search job boards first (better quality, faster)
-        # Search MORE aggressively to get 50-100 results
-        for search_query in job_board_queries[:7]:  # Top 7 job boards (more coverage)
-            for start in [1, 11, 21]:  # 3 pages per board (30 results each)
+        # Search VERY aggressively to get 50-100+ results
+        for search_query in job_board_queries[:10]:  # Top 10 job boards (maximum coverage)
+            for start in [1, 11, 21, 31]:  # 4 pages per board (40 results each) = 400 potential results
                 items = await self._search_cse(search_query, date_restrict, start)
                 if not items:
                     break
@@ -101,16 +101,16 @@ class JobService:
                         seen_urls.add(url)
                         all_items.append(item)
                 
-                if len(all_items) >= 200:  # Get more results for filtering
+                if len(all_items) >= 300:  # Get LOTS of results for filtering
                     break
             
-            if len(all_items) >= 200:
+            if len(all_items) >= 300:
                 break
         
-        # Then search base queries for more coverage
-        if len(all_items) < 100:
-            for search_query in base_queries[:5]:  # Top 5 base queries
-                for start in [1, 11]:  # 2 pages each
+        # Then search base queries for even more coverage
+        if len(all_items) < 150:
+            for search_query in base_queries:  # ALL base queries
+                for start in [1, 11, 21]:  # 3 pages each
                     items = await self._search_cse(search_query, date_restrict, start)
                     if not items:
                         break
@@ -121,21 +121,21 @@ class JobService:
                             seen_urls.add(url)
                             all_items.append(item)
                     
-                    if len(all_items) >= 200:
+                    if len(all_items) >= 300:
                         break
                 
-                if len(all_items) >= 200:
+                if len(all_items) >= 300:
                     break
         
         # all_items already deduplicated above, now process them
         # Fetch and parse each job posting - optimize for speed
         jobs = []
         async with httpx.AsyncClient(timeout=15.0) as client:  # Reduced timeout for speed
-            # Process MORE items to account for filtering - we want 50-100 good jobs
-            # Process up to 200 items, filtering will reduce to quality results
-            total_items = min(len(all_items), 200)
+            # Process MANY items to account for filtering - we want 50-100+ good jobs
+            # Process up to 300 items, filtering will reduce to quality results
+            total_items = min(len(all_items), 300)
             
-            for idx, item in enumerate(all_items[:200]):
+            for idx, item in enumerate(all_items[:300]):
                 url = item.get("link", "")
                 if not url:
                     continue

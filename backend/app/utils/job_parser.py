@@ -211,20 +211,63 @@ class JobParser:
         return None
     
     def _extract_keywords(self, text: Optional[str]) -> List[str]:
-        """Extract keywords from job description"""
+        """Extract keywords from job description - comprehensive skill extraction"""
         if not text:
             return []
         
-        # Simple keyword extraction (can be enhanced)
-        keywords = []
-        # Look for common tech keywords
-        tech_keywords = ["python", "javascript", "react", "typescript", "aws", "docker", "kubernetes"]
         text_lower = text.lower()
+        keywords = []
+        
+        # Comprehensive tech keywords list
+        tech_keywords = [
+            # Programming languages
+            "python", "javascript", "typescript", "java", "c++", "c#", "go", "rust", "ruby", "php", "swift", "kotlin",
+            # Web frameworks
+            "react", "angular", "vue", "next.js", "node.js", "express", "django", "flask", "spring", "laravel",
+            # Databases
+            "sql", "postgresql", "mysql", "mongodb", "redis", "elasticsearch", "cassandra",
+            # Cloud & DevOps
+            "aws", "azure", "gcp", "docker", "kubernetes", "terraform", "jenkins", "ci/cd", "git",
+            # Data & Analytics
+            "data analysis", "data analytics", "sql", "tableau", "power bi", "excel", "pandas", "numpy", "scikit-learn",
+            "machine learning", "ml", "ai", "deep learning", "tensorflow", "pytorch", "spark", "hadoop",
+            # Other skills
+            "api", "rest", "graphql", "microservices", "agile", "scrum", "jira", "confluence"
+        ]
+        
+        # Extract matching keywords
         for keyword in tech_keywords:
             if keyword in text_lower:
-                keywords.append(keyword)
+                # Capitalize properly
+                display_keyword = keyword.title() if len(keyword) > 3 else keyword.upper()
+                if display_keyword not in keywords:
+                    keywords.append(display_keyword)
         
-        return keywords[:10]  # Limit to 10 keywords
+        # Also look for "required skills" or "qualifications" sections
+        skills_section_patterns = [
+            r'required skills?[:\s]+([^\.]+)',
+            r'qualifications?[:\s]+([^\.]+)',
+            r'must have[:\s]+([^\.]+)',
+            r'technologies?[:\s]+([^\.]+)',
+        ]
+        
+        import re
+        for pattern in skills_section_patterns:
+            matches = re.findall(pattern, text_lower, re.IGNORECASE)
+            for match in matches:
+                # Extract individual skills from the match
+                skills = re.split(r'[,;•\n]', match)
+                for skill in skills:
+                    skill = skill.strip()
+                    if len(skill) > 2 and len(skill) < 30:
+                        # Check if it's a known tech keyword
+                        for tech in tech_keywords:
+                            if tech in skill.lower():
+                                display_skill = tech.title() if len(tech) > 3 else tech.upper()
+                                if display_skill not in keywords:
+                                    keywords.append(display_skill)
+        
+        return keywords[:15]  # Limit to 15 keywords (was 10)
     
     def _extract_source(self, url: str) -> str:
         """Extract source from URL"""

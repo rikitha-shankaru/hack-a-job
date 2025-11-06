@@ -156,27 +156,43 @@ export default function JobsPage() {
           {jobs.map((job) => (
             <div key={job.id} className="bg-white rounded-lg shadow p-6">
               <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     {job.title}
                   </h3>
-                  <p className="text-gray-600">{job.company}</p>
-                  <p className="text-sm text-gray-500">{job.location}</p>
-                  {job.datePosted && (
-                    <p className="text-sm text-gray-500">
-                      Posted: {new Date(job.datePosted).toLocaleDateString()}
-                    </p>
-                  )}
+                  <div className="space-y-1">
+                    <p className="text-gray-700 font-medium">{job.company || 'Company not specified'}</p>
+                    {job.location && (
+                      <p className="text-sm text-gray-600">
+                        📍 <span className="font-medium">Location:</span> {job.location}
+                      </p>
+                    )}
+                    {job.datePosted && (
+                      <p className="text-sm text-gray-600">
+                        📅 <span className="font-medium">Posted:</span> {new Date(job.datePosted).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
+                      </p>
+                    )}
+                    {(!job.datePosted && !job.location) && (
+                      <p className="text-sm text-gray-400 italic">Details pending...</p>
+                    )}
+                  </div>
                   {job.jd_keywords && job.jd_keywords.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {job.jd_keywords.map((keyword, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded"
-                        >
-                          {keyword}
-                        </span>
-                      ))}
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500 mb-1 font-medium">Skills Required:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {job.jd_keywords.map((keyword, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded font-medium"
+                          >
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
