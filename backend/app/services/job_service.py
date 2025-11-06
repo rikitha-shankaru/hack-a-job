@@ -73,14 +73,36 @@ class JobService:
                     response = await client.get(url, follow_redirects=True)
                     html = response.text
                     
+                    # Quick check for unavailable jobs before parsing
+                    html_lower = html.lower()
+                    unavailable_indicators = [
+                        'no longer available', 'job is no longer available', 
+                        'position has been filled', 'this job is closed',
+                        'application closed', 'position closed', 'no longer accepting',
+                        'sorry this job', 'expired', 'unavailable', 'filled'
+                    ]
+                    if any(indicator in html_lower for indicator in unavailable_indicators):
+                        print(f"Skipping unavailable job: {url}")
+                        continue
+                    
                     # Parse job posting
                     job_data = await self.parser.parse_job_posting(url, html)
                     
                     if job_data and self._is_valid_job(job_data):
-                        # Store or update job
-                        job = self._upsert_job(job_data, db)
-                        if job:
-                            jobs.append(job)
+                        # Check for duplicates by title+company
+                        is_duplicate = False
+                        title_company_key = f"{job_data.get('title', '').lower()}_{job_data.get('company', '').lower()}"
+                        for existing_job in jobs:
+                            existing_key = f"{existing_job.title.lower() if existing_job.title else ''}_{existing_job.company.lower() if existing_job.company else ''}"
+                            if title_company_key == existing_key and title_company_key:
+                                is_duplicate = True
+                                break
+                        
+                        if not is_duplicate:
+                            # Store or update job
+                            job = self._upsert_job(job_data, db)
+                            if job:
+                                jobs.append(job)
                 except Exception as e:
                     print(f"Error parsing job {url}: {e}")
                     continue
