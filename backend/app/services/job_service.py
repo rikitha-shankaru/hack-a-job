@@ -88,8 +88,9 @@ class JobService:
         seen_urls = set()
         
         # Search job boards first (better quality, faster)
-        for search_query in job_board_queries[:5]:  # Top 5 job boards
-            for start in [1, 11]:  # 2 pages per board (20 results)
+        # Search MORE aggressively to get 50-100 results
+        for search_query in job_board_queries[:7]:  # Top 7 job boards (more coverage)
+            for start in [1, 11, 21]:  # 3 pages per board (30 results each)
                 items = await self._search_cse(search_query, date_restrict, start)
                 if not items:
                     break
@@ -100,24 +101,30 @@ class JobService:
                         seen_urls.add(url)
                         all_items.append(item)
                 
-                if len(all_items) >= 100:
+                if len(all_items) >= 200:  # Get more results for filtering
                     break
             
-            if len(all_items) >= 100:
+            if len(all_items) >= 200:
                 break
         
-        # Then search base queries if we need more
-        if len(all_items) < 50:
-            for search_query in base_queries[:3]:  # Top 3 base queries
-                items = await self._search_cse(search_query, date_restrict, 1)
-                if items:
+        # Then search base queries for more coverage
+        if len(all_items) < 100:
+            for search_query in base_queries[:5]:  # Top 5 base queries
+                for start in [1, 11]:  # 2 pages each
+                    items = await self._search_cse(search_query, date_restrict, start)
+                    if not items:
+                        break
+                    
                     for item in items:
                         url = item.get("link", "")
                         if url and url not in seen_urls:
                             seen_urls.add(url)
                             all_items.append(item)
+                    
+                    if len(all_items) >= 200:
+                        break
                 
-                if len(all_items) >= 100:
+                if len(all_items) >= 200:
                     break
         
         # all_items already deduplicated above, now process them
@@ -125,10 +132,10 @@ class JobService:
         jobs = []
         async with httpx.AsyncClient(timeout=15.0) as client:  # Reduced timeout for speed
             # Process MORE items to account for filtering - we want 50-100 good jobs
-            # Process up to 120 items, filtering will reduce to quality results
-            total_items = min(len(all_items), 120)
+            # Process up to 200 items, filtering will reduce to quality results
+            total_items = min(len(all_items), 200)
             
-            for idx, item in enumerate(all_items[:120]):
+            for idx, item in enumerate(all_items[:200]):
                 url = item.get("link", "")
                 if not url:
                     continue
@@ -273,12 +280,13 @@ class JobService:
         
         return any(pattern in url_lower for pattern in exclude_patterns)
     
-    def _is_valid_job(self, job_data: dict) -> bool:
+    def _is_valid_job(self, job_data: dict, location_filter: Optional[str] = None) -> bool:
         """Validate that job data represents an actual job posting"""
         title = job_data.get("title", "").lower()
         company = job_data.get("company", "")
         jd_text = job_data.get("jd_text", "")
         url = job_data.get("url", "").lower()
+        job_location = job_data.get("location", "").lower() if job_data.get("location") else ""
         
         # Check for expired/unavailable job indicators
         unavailable_indicators = [
@@ -396,5 +404,77 @@ class JobService:
                 print(f"Rejecting job with old date: {date_posted} (more than 1 year old)")
                 return False
         
+        # Location filtering - if location specified, job must match
+        if location_filter:
+            location_filter_lower = location_filter.lower().strip()
+            # Normalize location filter (remove common variations)
+            location_variations = {
+                'new york': ['new york', 'ny', 'nyc', 'new york city', 'manhattan', 'brooklyn', 'queens'],
+                'california': ['california', 'ca', 'san francisco', 'sf', 'los angeles', 'la', 'san diego', 'palo alto'],
+                'chicago': ['chicago', 'il', 'illinois'],
+                'boston': ['boston', 'ma', 'massachusetts'],
+                'seattle': ['seattle', 'wa', 'washington'],
+            }
+            
+            # Check if location filter matches any known variations
+            matched_location = False
+            for key, variations in location_variations.items():
+                if location_filter_lower in variations or any(var in location_filter_lower for var in variations):
+                    # Check if job location matches any variation
+                    if job_location:
+                        for var in variations:
+                            if var in job_location:
+                                matched_location = True
+                                break
+                    # Also check in job description
+                    if jd_text:
+                        jd_lower = jd_text.lower()
+                        for var in variations:
+                            if var in jd_lower:
+                                matched_location = True
+                                break
+                    break
+            
+            # If no match found, do simple substring check
+            if not matched_location:
+                if job_location:
+                    # Check if location filter appears in job location
+                    if location_filter_lower not in job_location and job_location not in location_filter_lower:
+                        # Allow if it's a remote job or if location is close enough
+                        if 'remote' not in job_location and 'anywhere' not in job_location:
+                            # Reject if location doesn't match at all
+                            # But be lenient - allow if it's a major city in the same state
+                            if not self._is_location_match(location_filter_lower, job_location):
+                                print(f"Rejecting job - location mismatch: '{job_location}' doesn't match '{location_filter}'")
+                                return False
+        
         return True
+    
+    def _is_location_match(self, filter_location: str, job_location: str) -> bool:
+        """Check if job location matches filter location (lenient matching)"""
+        # Extract state/country from filter
+        filter_parts = filter_location.split()
+        
+        # Check if any part of filter matches job location
+        for part in filter_parts:
+            if len(part) > 2 and part in job_location:
+                return True
+        
+        # Check for common abbreviations
+        location_abbrevs = {
+            'ny': 'new york',
+            'nyc': 'new york',
+            'ca': 'california',
+            'sf': 'san francisco',
+            'la': 'los angeles',
+            'il': 'illinois',
+            'ma': 'massachusetts',
+            'wa': 'washington',
+        }
+        
+        for abbrev, full in location_abbrevs.items():
+            if abbrev in filter_location and (full in job_location or abbrev in job_location):
+                return True
+        
+        return False
 
