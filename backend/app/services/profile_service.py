@@ -23,6 +23,7 @@ class ProfileService:
         """Parse resume text or PDF and extract structured data"""
         resume_pdf_url = None
         resume_latex_template = None
+        temp_resume_json = None  # Will store parsed JSON if we parse it early
         
         if resume_pdf_path and os.path.exists(resume_pdf_path):
             # Parse PDF
@@ -31,7 +32,6 @@ class ProfileService:
             resume_pdf_url = f"/uploads/resumes/{os.path.basename(resume_pdf_path)}"
             
             # Parse resume JSON first (needed for LaTeX conversion)
-            # We'll parse it here temporarily to get structure
             temp_resume_json = await self.gemini_client.parse_resume(resume_text)
             
             # Convert PDF to LaTeX code preserving exact formatting
@@ -57,7 +57,7 @@ class ProfileService:
         
         # Parse resume using Gemini for structured extraction
         # If we already parsed it for LaTeX conversion, reuse it
-        if 'temp_resume_json' in locals() and temp_resume_json:
+        if temp_resume_json:
             structured_resume = temp_resume_json
         else:
             structured_resume = await self.gemini_client.parse_resume(resume_text)
