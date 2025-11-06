@@ -96,10 +96,13 @@ npm run dev
 ## 🚀 Complete Workflow
 
 ```
-Upload PDF Resume → Parse (Gemini) → Search Jobs → 
-Tailor Resume (Gemini + LaTeX) → Generate Cover Letter (Gemini) → 
-Autofill Application (Playwright + Gemini Questions) → 
-Send Verification Email
+1. Landing Page: AI collects target role, location (optional), job posting recency
+2. Upload Resume: Drag-and-drop, file upload, or paste resume text
+3. Auto-Search: Automatically searches and lists matching jobs
+4. Tailor: Generate AI-tailored resume and cover letter for selected job
+5. Apply: Choose manual application or AI autofill
+   - Manual: Download tailored docs and apply yourself
+   - AI Autofill: AI fills application form, you review and approve
 ```
 
 ## 📡 API Endpoints

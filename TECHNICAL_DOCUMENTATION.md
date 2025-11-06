@@ -50,10 +50,11 @@ Hack-A-Job/
 │
 └── frontend/                # Next.js frontend
     ├── app/                # Next.js App Router
-    │   ├── page.tsx        # Home page
-    │   ├── upload/         # Resume upload page
-    │   ├── jobs/           # Job search & listing pages
-    │   ├── tailor/         # Resume tailoring page
+    │   ├── page.tsx        # Landing page (collects target role, location, recency)
+    │   ├── upload/         # Resume upload page (drag-and-drop, file upload, paste)
+    │   ├── jobs/           # Job search & listing pages (auto-searches after upload)
+    │   │   └── [id]/
+    │   │       └── tailor/  # Resume tailoring page (with apply options)
     │   ├── autofill/       # Autofill verification page
     │   └── verify/         # Application verification page
     └── lib/
@@ -104,7 +105,7 @@ Hack-A-Job/
 
 #### 5. **LangGraph** (v0.0.26)
 - **Purpose**: Workflow orchestration
-- **Workflow**: Parse → Search → Tailor → Cover Letter → Autofill → Email
+- **Workflow**: Collect Info → Upload → Auto-Search → Tailor → Cover Letter → Autofill → Email
 - **State Management**: TypedDict for type-safe state
 
 #### 6. **Playwright** (v1.40.0)
@@ -155,16 +156,35 @@ Hack-A-Job/
 
 ## 🔄 Complete Data Flow
 
+### 0. **Landing Page - Collect Job Search Preferences**
+
+```
+User visits landing page
+    ↓
+AI collects:
+  - Target job role (required)
+  - Location (optional)
+  - Job posting recency (d7/w2/m1)
+    ↓
+Data stored in localStorage
+    ↓
+Redirect to /upload
+```
+
 ### 1. **Resume Upload & Parsing**
 
 ```
-User Uploads PDF Resume
+User uploads resume via:
+  - Drag-and-drop PDF
+  - File upload
+  - Paste resume text
     ↓
 [Frontend] POST /api/profile/ingest (multipart/form-data)
+  - Includes: email, name, roleTarget (from landing page), levelTarget
     ↓
 [Backend] profile.py → ProfileService.parse_resume()
     ↓
-PDFParser.parse_pdf() → Extract text & structure
+PDFParser.parse_pdf() → Extract text & structure (if PDF)
     ↓
 GeminiClient.parse_resume() → Structured JSON
     ↓
@@ -173,6 +193,10 @@ Extract: skills, metrics, links, generate embedding
 Store in PostgreSQL:
   - User (email, name, role_target, level_target)
   - Profile (resume_json, resume_pdf_url, resume_latex_template, skills, metrics, links, resume_vector)
+    ↓
+[Frontend] Automatically triggers job search with stored preferences
+    ↓
+Redirect to /jobs?autoSearch=true&query=...&location=...&recency=...
 ```
 
 **Key Files**:
@@ -189,12 +213,15 @@ Store in PostgreSQL:
 
 ---
 
-### 2. **Job Search**
+### 2. **Job Search (Auto-Triggered)**
 
 ```
-User Searches: "software engineer" + location + recency
+After resume upload OR manual search:
     ↓
 [Frontend] POST /api/jobs/search
+  - Query: target role from landing page
+  - Location: from landing page (if provided)
+  - Recency: from landing page
     ↓
 [Backend] jobs.py → JobService.search_and_store_jobs()
     ↓
@@ -242,7 +269,11 @@ Return JobResponse[] to frontend
 ### 3. **Resume Tailoring**
 
 ```
-User Selects Job → Clicks "Tailor"
+User views job list → Clicks "Tailor" on a job
+    ↓
+[Frontend] Navigate to /jobs/[id]/tailor
+    ↓
+User clicks "Generate AI-Tailored Resume & Cover Letter"
     ↓
 [Frontend] POST /api/tailor (userId, jobId)
     ↓
@@ -295,10 +326,22 @@ Return TailorResponse with PDF URLs
 
 ---
 
-### 4. **Complete Workflow (LangGraph)**
+### 4. **Apply Options (After Tailoring)**
 
 ```
-User Clicks "Run Complete Workflow"
+After tailoring completes, user sees two options:
+
+Option A: Manual Application
+    ↓
+User downloads tailored resume and cover letter PDFs
+    ↓
+User clicks "View Job Posting" → Opens job URL in new tab
+    ↓
+User manually applies using downloaded documents
+
+Option B: AI Autofill Application
+    ↓
+User clicks "Start AI Autofill"
     ↓
 [Frontend] POST /api/tailor/complete (userId, jobId)
     ↓
@@ -706,17 +749,32 @@ const apiClient = axios.create({
 ### Complete User Journey
 
 ```
-1. User visits homepage
+1. User visits landing page (/)
    → GET / (Next.js renders page.tsx)
+   → User enters: target role, location (optional), job posting recency
+   → Data stored in localStorage
+   → Redirect to /upload
 
-2. User uploads resume
+2. User uploads resume (/upload)
+   → Drag-and-drop, file upload, or paste resume text
    → POST /api/profile/ingest (multipart/form-data)
    → Backend: Parse PDF → Gemini → Store in DB
    → Response: { userId, parsed, resumeJson }
-   → Frontend: Store userId in localStorage, redirect to /jobs
+   → Frontend: Store userId in localStorage
+   → Automatically triggers job search with stored preferences
+   → Redirect to /jobs?autoSearch=true&query=...&location=...&recency=...
 
-3. User searches jobs
-   → POST /api/jobs/search { query: "software", location: "california" }
+3. Jobs auto-search (/jobs)
+   → GET /jobs?autoSearch=true&query=...&location=...&recency=...
+   → Frontend: Auto-triggers POST /api/jobs/search
+   → Backend: Google CSE search → Parse → Filter → Store
+   → Response: { jobs: [...] }
+   → Frontend: Display job list
+   → User clicks "Tailor" on a job → Navigate to /jobs/[id]/tailor
+
+4. User tailors resume (/jobs/[id]/tailor)
+   → User clicks "Generate AI-Tailored Resume & Cover Letter"
+   → POST /api/tailor { userId, jobId }
    → Backend: Google CSE → Parse → Filter → Store → Return
    → Response: { jobs: [...] }
    → Frontend: Display job cards
