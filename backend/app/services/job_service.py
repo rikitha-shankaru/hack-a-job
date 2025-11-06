@@ -71,20 +71,12 @@ class JobService:
             if len(all_items) >= 50:
                 break
         
-        # Deduplicate by URL
-        seen_urls = set()
-        unique_items = []
-        for item in all_items:
-            url = item.get("link", "")
-            if url and url not in seen_urls:
-                seen_urls.add(url)
-                unique_items.append(item)
-        
+        # all_items already deduplicated above, now process them
         # Fetch and parse each job posting
         jobs = []
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # Process more items to account for filtering
-            for item in unique_items[:50]:  # Process up to 50, filter will reduce
+            # Process all items we found (already deduplicated)
+            for item in all_items[:60]:  # Process up to 60, filter will reduce
                 url = item.get("link", "")
                 if not url:
                     continue
