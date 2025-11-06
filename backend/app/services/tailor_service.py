@@ -80,6 +80,22 @@ class TailorService:
                 level_target=user.level_target
             )
         
+        # CRITICAL: Preserve essential fields that must NEVER be removed
+        # Ensure name, email, phone, location, and links are always preserved from original
+        if not tailored_resume.get("name") and base_resume_json.get("name"):
+            tailored_resume["name"] = base_resume_json["name"]
+        if not tailored_resume.get("email") and base_resume_json.get("email"):
+            tailored_resume["email"] = base_resume_json["email"]
+        if not tailored_resume.get("phone") and base_resume_json.get("phone"):
+            tailored_resume["phone"] = base_resume_json["phone"]
+        if not tailored_resume.get("location") and base_resume_json.get("location"):
+            tailored_resume["location"] = base_resume_json["location"]
+        if not tailored_resume.get("links") and base_resume_json.get("links"):
+            tailored_resume["links"] = base_resume_json["links"]
+        # Always preserve links if they exist in original
+        if base_resume_json.get("links"):
+            tailored_resume["links"] = base_resume_json["links"]
+        
         # Generate cover letter using OpenAI (better quality) with Gemini fallback
         if self.use_openai and self.openai_client:
             try:

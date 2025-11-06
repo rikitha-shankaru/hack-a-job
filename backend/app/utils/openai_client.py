@@ -22,7 +22,7 @@ class OpenAIClient:
         level_target: str = None
     ) -> Dict[str, Any]:
         """Tailor resume for a specific job using OpenAI - preserving human authenticity"""
-        prompt = f"""You are helping tailor a resume. CRITICAL: Preserve 95%+ of the original text. Only reorder, don't rewrite.
+               prompt = f"""You are helping tailor a resume. CRITICAL: Preserve 95%+ of the original text. Only reorder, don't rewrite.
 
 ABSOLUTE RULES:
 1. DO NOT REWRITE: Keep original bullet points 95%+ identical. Only change 1-2 words if absolutely necessary for keyword matching.
@@ -31,8 +31,10 @@ ABSOLUTE RULES:
 4. DO NOT CHANGE COMPANIES/TITLES: Keep all employer names and job titles exactly as written.
 5. REORDER ONLY: Move most relevant experience/projects first. Keep the exact same wording.
 6. MINIMAL KEYWORD INSERTION: Add 1-2 job keywords ONLY if they naturally fit. Don't force them.
+7. PRESERVE ALL CONTACT INFO: ALWAYS keep name, email, phone, location, and links EXACTLY as in original. NEVER remove or modify these fields.
 
 WHAT TO DO:
+- Name, Email, Phone, Location, Links: Keep EXACTLY as in original. NEVER modify or remove.
 - Summary: Keep 95%+ of original text. Add 1 keyword max if it fits naturally.
 - Experience: Reorder by relevance. Keep bullets 95%+ identical. Limit to 3 bullets per role.
 - Skills: Keep original skills. Add only if clearly mentioned in experience. Don't invent.
@@ -49,7 +51,7 @@ Job Description:
 
 Job Keywords: {', '.join(jd_keywords[:10])}
 
-Output ONLY valid JSON with the same structure. Preserve 95%+ of original text. Reorder, don't rewrite."""
+Output ONLY valid JSON with the same structure. MUST include name, email, phone, location, and links from original. Preserve 95%+ of original text. Reorder, don't rewrite."""
         
         try:
             response = await self.client.chat.completions.create(

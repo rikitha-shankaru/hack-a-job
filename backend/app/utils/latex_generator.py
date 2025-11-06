@@ -185,16 +185,50 @@ ${projects}
         latex = template
         
         # Format header - replace placeholders
-        name = resume_json.get("name", "")
-        email = resume_json.get("email", "")
-        phone = resume_json.get("phone", "")
-        location = resume_json.get("location", "")
+        name = resume_json.get("name", "") or ""
+        email = resume_json.get("email", "") or ""
+        phone = resume_json.get("phone", "") or ""
+        location = resume_json.get("location", "") or ""
+        
+        # Format links if they exist
+        links = resume_json.get("links", {})
+        links_text = ""
+        if links:
+            link_parts = []
+            if links.get("linkedin"):
+                link_parts.append(f"\\href{{{links['linkedin']}}}{{LinkedIn}}")
+            if links.get("github"):
+                link_parts.append(f"\\href{{{links['github']}}}{{GitHub}}")
+            if links.get("portfolio"):
+                link_parts.append(f"\\href{{{links['portfolio']}}}{{Portfolio}}")
+            if links.get("website"):
+                link_parts.append(f"\\href{{{links['website']}}}{{Website}}")
+            if link_parts:
+                links_text = " | ".join(link_parts)
         
         # Replace header placeholders (handle both ${var} and {var} formats)
+        # Also handle cases where links might be in the header
         latex = latex.replace("${name}", self._escape_latex(name))
         latex = latex.replace("${email}", self._escape_latex(email))
         latex = latex.replace("${phone}", self._escape_latex(phone))
         latex = latex.replace("${location}", self._escape_latex(location))
+        latex = latex.replace("${links}", links_text)
+        
+        # Also handle if links are part of contact info (common pattern)
+        # Replace patterns like ${email} | ${phone} | ${location} with links
+        if links_text and "${links}" not in template:
+            # Try to inject links into header if there's a pattern for it
+            # Common pattern: email | phone | location | links
+            contact_patterns = [
+                ("${email} \\textbar{} ${phone} \\textbar{} ${location}", 
+                 f"{self._escape_latex(email)} \\textbar{{}} {self._escape_latex(phone)} \\textbar{{}} {self._escape_latex(location)} | {links_text}"),
+                ("${email} | ${phone} | ${location}",
+                 f"{self._escape_latex(email)} | {self._escape_latex(phone)} | {self._escape_latex(location)} | {links_text}"),
+            ]
+            for pattern, replacement in contact_patterns:
+                if pattern in latex:
+                    latex = latex.replace(pattern, replacement)
+                    break
         
         # Format summary
         summary = self._escape_latex(resume_json.get("summary", ""))
