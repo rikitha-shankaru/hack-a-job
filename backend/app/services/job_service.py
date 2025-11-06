@@ -404,16 +404,36 @@ class JobService:
                 print(f"Rejecting job with old date: {date_posted} (more than 1 year old)")
                 return False
         
-        # Location filtering - if location specified, job must match
+        # Location filtering - if location specified, job must match OR be remote
+        # Remote jobs are always included regardless of location filter
+        is_remote_job = False
+        if job_location:
+            job_location_lower = job_location.lower()
+            remote_indicators = ['remote', 'anywhere', 'work from home', 'wfh', 'virtual', 'distributed']
+            is_remote_job = any(indicator in job_location_lower for indicator in remote_indicators)
+        
+        # Also check job description for remote indicators
+        if not is_remote_job and jd_text:
+            jd_lower = jd_text.lower()
+            remote_indicators = ['remote', 'anywhere', 'work from home', 'wfh', 'virtual', 'distributed', 'work remotely']
+            is_remote_job = any(indicator in jd_lower for indicator in remote_indicators)
+        
+        # If it's a remote job, always include it (regardless of location filter)
+        if is_remote_job:
+            return True
+        
+        # If location filter specified and job is not remote, must match location
         if location_filter:
             location_filter_lower = location_filter.lower().strip()
             # Normalize location filter (remove common variations)
             location_variations = {
-                'new york': ['new york', 'ny', 'nyc', 'new york city', 'manhattan', 'brooklyn', 'queens'],
-                'california': ['california', 'ca', 'san francisco', 'sf', 'los angeles', 'la', 'san diego', 'palo alto'],
+                'new york': ['new york', 'ny', 'nyc', 'new york city', 'manhattan', 'brooklyn', 'queens', 'bronx', 'staten island'],
+                'california': ['california', 'ca', 'san francisco', 'sf', 'los angeles', 'la', 'san diego', 'palo alto', 'san jose', 'oakland'],
                 'chicago': ['chicago', 'il', 'illinois'],
                 'boston': ['boston', 'ma', 'massachusetts'],
                 'seattle': ['seattle', 'wa', 'washington'],
+                'texas': ['texas', 'tx', 'austin', 'dallas', 'houston'],
+                'florida': ['florida', 'fl', 'miami', 'tampa', 'orlando'],
             }
             
             # Check if location filter matches any known variations
@@ -440,13 +460,10 @@ class JobService:
                 if job_location:
                     # Check if location filter appears in job location
                     if location_filter_lower not in job_location and job_location not in location_filter_lower:
-                        # Allow if it's a remote job or if location is close enough
-                        if 'remote' not in job_location and 'anywhere' not in job_location:
-                            # Reject if location doesn't match at all
-                            # But be lenient - allow if it's a major city in the same state
-                            if not self._is_location_match(location_filter_lower, job_location):
-                                print(f"Rejecting job - location mismatch: '{job_location}' doesn't match '{location_filter}'")
-                                return False
+                        # Reject if location doesn't match at all
+                        if not self._is_location_match(location_filter_lower, job_location):
+                            print(f"Rejecting job - location mismatch: '{job_location}' doesn't match '{location_filter}'")
+                            return False
         
         return True
     
