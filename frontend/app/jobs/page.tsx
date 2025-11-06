@@ -180,23 +180,18 @@ export default function JobsPage() {
                       <p className="text-sm text-gray-400 italic">Details pending...</p>
                     )}
                   </div>
-                  <div className="mt-3">
-                    <p className="text-xs text-gray-500 mb-1 font-medium">Skills Required:</p>
-                    {job.jd_keywords && job.jd_keywords.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {job.jd_keywords.map((keyword, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded font-medium"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400 italic">No skills specified</p>
-                    )}
-                  </div>
+                  {job.jd_keywords && job.jd_keywords.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {job.jd_keywords.map((keyword, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded font-medium"
+                        >
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <a
