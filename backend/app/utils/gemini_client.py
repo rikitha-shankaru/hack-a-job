@@ -86,15 +86,23 @@ Output only the JSON object, no other text."""
         role_target: str = None,
         level_target: str = None
     ) -> Dict[str, Any]:
-        """Tailor resume for a specific job using Gemini AI"""
-        prompt = f"""You are an expert AI resume writer specializing in ATS optimization and job matching. Intelligently rewrite this resume for a specific job posting while maintaining complete factual accuracy.
+        """Tailor resume for a specific job using Gemini AI - preserving human authenticity"""
+        prompt = f"""You are a professional resume editor helping a candidate tailor their resume for a specific job. Your goal is MINIMAL, STRATEGIC editing that preserves 90%+ of the original human-written content.
 
-Key principles:
-1. Truth preservation: Never invent employers, titles, dates, or metrics. Only rephrase and reorder existing content.
-2. Strategic alignment: Match the job description's language, skills, and requirements.
-3. ATS optimization: Use keywords naturally while maintaining readability.
-4. Impact highlighting: Surface metrics and achievements that demonstrate value.
-5. Relevance prioritization: Reorder sections to emphasize most relevant experience first.
+CRITICAL RULES FOR AUTHENTICITY:
+1. PRESERVE ORIGINAL VOICE: Keep the candidate's original writing style, phrasing, and tone. Do NOT rewrite everything - only make strategic tweaks.
+2. MINIMAL CHANGES: Change only what's necessary. If a bullet point already works, keep it 95% the same. Only edit if it significantly improves job match.
+3. TRUTH PRESERVATION: Never invent employers, titles, dates, metrics, or achievements. Only work with what exists.
+4. STRATEGIC KEYWORD INSERTION: Naturally weave in 2-3 job-relevant keywords per section, but keep original phrasing intact.
+5. REORDERING OVER REWRITING: Prioritize reordering bullets/experiences over rewriting them. Move most relevant items first.
+6. PRESERVE METRICS: Keep all original numbers, percentages, and achievements exactly as written.
+7. NATURAL LANGUAGE: All changes must sound like a human wrote them, not AI. Avoid corporate jargon or overly polished language.
+
+EDITING APPROACH:
+- Summary: Add 1-2 job-relevant keywords, but keep 90% of original text
+- Experience bullets: Only modify if missing critical keywords. Keep original achievements/metrics.
+- Skills: Add missing job-relevant skills IF they genuinely exist in experience. Don't fabricate.
+- Reorder: Move most relevant experience/projects first, but keep content unchanged.
 
 Base Resume JSON:
 {json.dumps(base_resume_json, indent=2)}
@@ -106,7 +114,7 @@ Job Keywords: {', '.join(jd_keywords)}
 Role Target: {role_target or 'N/A'}
 Level Target: {level_target or 'N/A'}
 
-Output ONLY valid JSON with the same structure as the base resume. Do not add new companies, titles, or dates. Only rephrase and reorder."""
+Output ONLY valid JSON with the same structure. Preserve 90%+ of original content. Make minimal, strategic edits that sound human-written."""
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
@@ -135,8 +143,23 @@ Output ONLY valid JSON with the same structure as the base resume. Do not add ne
         company: str,
         jd_keywords: List[str]
     ) -> Dict[str, Any]:
-        """Generate cover letter using Gemini"""
-        prompt = f"""Write a concise cover letter from structured facts only: 1–2 sentence opening referencing the company/team, three bullets mapping candidate impact to JD must-haves, and a short closing with availability and links. No fluff. 200–250 words total.
+        """Generate authentic, human-sounding cover letter using Gemini"""
+        prompt = f"""Write a professional but authentic cover letter that sounds like a real person wrote it, not AI. Use natural, conversational language while staying professional.
+
+CRITICAL RULES FOR AUTHENTICITY:
+1. HUMAN VOICE: Write like a real candidate would - natural, genuine, not overly polished or corporate-sounding
+2. USE ACTUAL FACTS: Only reference real experiences, achievements, and skills from the resume
+3. SPECIFIC EXAMPLES: Reference specific projects, metrics, or experiences from the resume
+4. CONVERSATIONAL TONE: Sound like you're talking to a hiring manager, not a robot
+5. AVOID CLICHÉS: No "I'm excited to apply" or "I'm the perfect candidate" - be genuine
+6. SHOW, DON'T TELL: Use specific examples from resume rather than generic statements
+
+STRUCTURE:
+- Opening (2-3 sentences): Reference the specific role/company naturally. Mention why you're interested (be specific, not generic).
+- Three mapping bullets: Connect your REAL achievements from resume to job requirements. Use actual metrics/projects.
+- Closing (2-3 sentences): Professional but warm closing. Mention availability naturally.
+
+Keep it 200-300 words total. Sound human, not AI-generated.
 
 Resume JSON:
 {json.dumps(resume_json, indent=2)}
@@ -149,10 +172,12 @@ Job Keywords: {', '.join(jd_keywords)}
 
 Output JSON with this structure:
 {{
-  "opening": "string (max 300 chars)",
-  "mapping": ["bullet 1", "bullet 2", "bullet 3"],
-  "closing": "string (max 200 chars)"
-}}"""
+  "opening": "string (2-3 sentences, max 400 chars, natural and specific)",
+  "mapping": ["bullet 1 (specific achievement from resume)", "bullet 2 (specific achievement)", "bullet 3 (specific achievement)"],
+  "closing": "string (2-3 sentences, max 300 chars, warm and professional)"
+}}
+
+Write like a real person would - authentic, specific, and genuine."""
         
         # Add retry logic for rate limiting
         response = await self._generate_with_retry(prompt)
