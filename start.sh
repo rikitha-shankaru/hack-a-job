@@ -6,11 +6,34 @@ echo "🚀 Starting Hack-A-Job Application..."
 echo ""
 
 # Check if Overleaf CLSI is running (optional)
-if docker ps | grep -q overleaf-clsi; then
+if docker ps | grep -q hack-a-job-overleaf-clsi; then
     echo "✅ Overleaf CLSI is running"
 else
-    echo "ℹ️  Overleaf CLSI not detected. LaTeX will use local pdflatex if available."
-    echo "   To use Overleaf CLSI, run: docker-compose -f docker-compose.overleaf.yml up -d"
+    echo "🚀 Starting Overleaf CLSI..."
+    if command -v docker-compose &> /dev/null || command -v docker &> /dev/null; then
+        # Try docker compose (newer) or docker-compose (older)
+        if docker compose version &> /dev/null; then
+            docker compose -f docker-compose.overleaf.yml up -d 2>/dev/null || echo "⚠️  Failed to start Overleaf CLSI with docker compose"
+        elif command -v docker-compose &> /dev/null; then
+            docker-compose -f docker-compose.overleaf.yml up -d 2>/dev/null || echo "⚠️  Failed to start Overleaf CLSI with docker-compose"
+        else
+            echo "⚠️  Docker not found. Overleaf CLSI will not start."
+            echo "   LaTeX will use local pdflatex if available."
+        fi
+        
+        # Wait a moment for CLSI to start
+        sleep 2
+        
+        # Verify it started
+        if docker ps | grep -q hack-a-job-overleaf-clsi; then
+            echo "✅ Overleaf CLSI started successfully"
+        else
+            echo "⚠️  Overleaf CLSI may not have started. LaTeX will use local pdflatex if available."
+        fi
+    else
+        echo "⚠️  Docker not found. Overleaf CLSI will not start."
+        echo "   LaTeX will use local pdflatex if available."
+    fi
 fi
 echo ""
 
