@@ -1,23 +1,36 @@
 #!/bin/bash
 
 # Quick Start Script for Hack-A-Job
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
 
 echo "🚀 Starting Hack-A-Job Application..."
 echo ""
 
 # Check if Overleaf CLSI is running (optional)
-if docker ps | grep -q hack-a-job-overleaf-clsi; then
+if docker ps 2>/dev/null | grep -q hack-a-job-overleaf-clsi; then
     echo "✅ Overleaf CLSI is running"
 else
     echo "🚀 Starting Overleaf CLSI..."
-    if command -v docker-compose &> /dev/null || command -v docker &> /dev/null; then
+    if command -v docker &> /dev/null; then
         # Try docker compose (newer) or docker-compose (older)
-        if docker compose version &> /dev/null; then
-            docker compose -f docker-compose.overleaf.yml up -d 2>/dev/null || echo "⚠️  Failed to start Overleaf CLSI with docker compose"
+        if docker compose version &> /dev/null 2>&1; then
+            docker compose -f "$SCRIPT_DIR/docker-compose.overleaf.yml" up -d 2>&1 | grep -v "Creating\|Starting" || true
+            if [ $? -eq 0 ]; then
+                echo "✅ Overleaf CLSI started successfully"
+            else
+                echo "⚠️  Failed to start Overleaf CLSI. LaTeX will use local pdflatex if available."
+            fi
         elif command -v docker-compose &> /dev/null; then
-            docker-compose -f docker-compose.overleaf.yml up -d 2>/dev/null || echo "⚠️  Failed to start Overleaf CLSI with docker-compose"
+            docker-compose -f "$SCRIPT_DIR/docker-compose.overleaf.yml" up -d 2>&1 | grep -v "Creating\|Starting" || true
+            if [ $? -eq 0 ]; then
+                echo "✅ Overleaf CLSI started successfully"
+            else
+                echo "⚠️  Failed to start Overleaf CLSI. LaTeX will use local pdflatex if available."
+            fi
         else
-            echo "⚠️  Docker not found. Overleaf CLSI will not start."
+            echo "⚠️  Docker Compose not found. Overleaf CLSI will not start."
             echo "   LaTeX will use local pdflatex if available."
         fi
         
@@ -25,10 +38,8 @@ else
         sleep 2
         
         # Verify it started
-        if docker ps | grep -q hack-a-job-overleaf-clsi; then
-            echo "✅ Overleaf CLSI started successfully"
-        else
-            echo "⚠️  Overleaf CLSI may not have started. LaTeX will use local pdflatex if available."
+        if docker ps 2>/dev/null | grep -q hack-a-job-overleaf-clsi; then
+            echo "✅ Overleaf CLSI is running"
         fi
     else
         echo "⚠️  Docker not found. Overleaf CLSI will not start."
@@ -54,8 +65,13 @@ fi
 
 # Check database connection
 echo "🔍 Checking database connection..."
-cd backend
-source venv/bin/activate
+cd "$SCRIPT_DIR/backend"
+if [ -f "venv/bin/activate" ]; then
+    source venv/bin/activate
+else
+    echo "⚠️  Virtual environment not found in backend/venv"
+    echo "   Please create it with: cd backend && python3 -m venv venv"
+fi
 
 # Try to run a simple check
 python3 -c "
@@ -76,19 +92,35 @@ echo "Press Ctrl+C to stop both servers"
 echo ""
 
 # Start backend in background
-cd backend
-source venv/bin/activate
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
-BACKEND_PID=$!
+cd "$SCRIPT_DIR/backend"
+if [ -f "venv/bin/activate" ]; then
+    source venv/bin/activate
+    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+    BACKEND_PID=$!
+else
+    echo "⚠️  Backend virtual environment not found. Skipping backend startup."
+    BACKEND_PID=""
+fi
 
 # Wait a bit for backend to start
 sleep 3
 
 # Start frontend
-cd ../frontend
-npm run dev &
-FRONTEND_PID=$!
+cd "$SCRIPT_DIR/frontend"
+if [ -f "package.json" ]; then
+    npm run dev &
+    FRONTEND_PID=$!
+else
+    echo "⚠️  Frontend not found. Skipping frontend startup."
+    FRONTEND_PID=""
+fi
 
 # Wait for both processes
-wait $BACKEND_PID $FRONTEND_PID
+if [ -n "$BACKEND_PID" ] && [ -n "$FRONTEND_PID" ]; then
+    wait $BACKEND_PID $FRONTEND_PID
+elif [ -n "$BACKEND_PID" ]; then
+    wait $BACKEND_PID
+elif [ -n "$FRONTEND_PID" ]; then
+    wait $FRONTEND_PID
+fi
 
