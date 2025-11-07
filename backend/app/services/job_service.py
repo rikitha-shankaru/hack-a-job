@@ -193,7 +193,7 @@ class JobService:
                     # Parse job posting
                     job_data = await self.parser.parse_job_posting(url, html)
                     
-                    if job_data and self._is_valid_job(job_data, location_filter=location):
+                    if job_data and self._is_valid_job(job_data, location_filter=location, html=html):
                         # Check for duplicates by title+company
                         is_duplicate = False
                         title = (job_data.get('title') or '').lower()
