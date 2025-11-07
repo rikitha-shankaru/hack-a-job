@@ -50,14 +50,22 @@ class LaTeXCompiler:
         Compile LaTeX content to PDF
         Uses Overleaf CLSI if configured, otherwise falls back to local pdflatex
         """
-        # Try Overleaf CLSI first if configured
+        # Try Overleaf CLSI first if configured (PREFERRED METHOD)
         if self.use_overleaf and self.overleaf_client:
             try:
                 logger.info("Using Overleaf CLSI for LaTeX compilation")
-                return await self.overleaf_client.compile_latex_to_file(
-                    latex_content,
-                    output_filename or os.path.join(tempfile.gettempdir(), "resume.pdf")
-                )
+                pdf_bytes = await self.overleaf_client.compile_latex(latex_content)
+                
+                # Save PDF to file
+                if not output_filename:
+                    output_filename = os.path.join(tempfile.gettempdir(), f"resume_{uuid.uuid4().hex[:8]}.pdf")
+                
+                os.makedirs(os.path.dirname(output_filename) if os.path.dirname(output_filename) else '.', exist_ok=True)
+                with open(output_filename, 'wb') as f:
+                    f.write(pdf_bytes)
+                
+                logger.info(f"Successfully compiled LaTeX to PDF using Overleaf CLSI: {output_filename}")
+                return output_filename
             except Exception as e:
                 logger.warning(f"Overleaf CLSI compilation failed: {e}. Falling back to local pdflatex.")
                 # Fall through to local compilation

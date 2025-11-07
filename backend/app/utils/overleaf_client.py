@@ -1,11 +1,17 @@
 """
 Overleaf CLSI (Common LaTeX Service Interface) client for compiling LaTeX to PDF
 CLSI is Overleaf's open-source LaTeX compilation service
+
+To use Overleaf CLSI:
+1. Self-host CLSI using Docker: docker run -d -p 3013:3013 overleaf/clsi
+2. Set OVERLEAF_CLSI_URL=http://localhost:3013 in .env
+3. Optionally set OVERLEAF_CLSI_KEY if your CLSI instance requires authentication
 """
 import httpx
 import base64
 import json
-from typing import Optional
+import uuid
+from typing import Optional, Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,6 +21,8 @@ class OverleafClient:
     """
     Client for Overleaf CLSI (Common LaTeX Service Interface)
     CLSI is Overleaf's open-source LaTeX compilation service that can be self-hosted
+    
+    CLSI API Documentation: https://github.com/overleaf/clsi
     """
     
     def __init__(self, clsi_url: str, api_key: Optional[str] = None):
@@ -32,7 +40,7 @@ class OverleafClient:
     async def compile_latex(
         self,
         latex_content: str,
-        project_id: str = "resume_project",
+        project_id: Optional[str] = None,
         compiler: str = "pdflatex"
     ) -> bytes:
         """
@@ -40,64 +48,92 @@ class OverleafClient:
         
         Args:
             latex_content: LaTeX source code
-            project_id: Unique project identifier
+            project_id: Unique project identifier (auto-generated if not provided)
             compiler: LaTeX compiler to use (pdflatex, xelatex, lualatex)
             
         Returns:
             PDF file content as bytes
         """
-        # CLSI API endpoint
+        if not project_id:
+            project_id = f"resume_{uuid.uuid4().hex[:8]}"
+        
+        # CLSI API endpoint format: POST /project/:project_id/compile
         url = f"{self.clsi_url}/project/{project_id}/compile"
         
-        # Prepare request payload
-        # CLSI expects files in a specific format
-        files = {
-            "main.tex": latex_content.encode('utf-8')
+        # CLSI expects files as base64-encoded content
+        # Format: { "files": { "filename.tex": "base64_content" } }
+        files_dict = {
+            "main.tex": base64.b64encode(latex_content.encode('utf-8')).decode('utf-8')
         }
         
-        headers = {}
+        # Prepare request payload according to CLSI API spec
+        payload = {
+            "compile": {
+                "options": {
+                    "compiler": compiler,
+                    "timeout": 60
+                }
+            },
+            "files": files_dict,
+            "rootResourcePath": "main.tex"
+        }
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         
-        # Compile request
-        compile_params = {
-            "compiler": compiler,
-            "timeout": 60
-        }
-        
         try:
+            logger.info(f"Compiling LaTeX via Overleaf CLSI at {url}")
+            
             # Send compilation request
             response = await self.client.post(
                 url,
-                json={
-                    "compile": compile_params,
-                    "files": {name: base64.b64encode(content).decode('utf-8') 
-                             for name, content in files.items()}
-                },
+                json=payload,
                 headers=headers
             )
             
             if response.status_code != 200:
-                raise RuntimeError(f"CLSI compilation failed: {response.text}")
+                error_text = response.text[:500]
+                raise RuntimeError(f"CLSI compilation failed (HTTP {response.status_code}): {error_text}")
             
             result = response.json()
             
-            # Check if compilation was successful
-            if result.get("status") != "success":
-                error_log = result.get("output", "")
-                raise RuntimeError(f"LaTeX compilation failed: {error_log[:500]}")
+            # CLSI returns compilation status and output files
+            status = result.get("status", "error")
+            if status != "success":
+                # Get error log from output
+                output = result.get("output", {})
+                log_output = output.get("main.log", "")
+                if not log_output:
+                    log_output = str(result)
+                raise RuntimeError(f"LaTeX compilation failed: {log_output[:500]}")
             
-            # Get PDF content
-            pdf_base64 = result.get("pdf")
+            # Get PDF from output files
+            output = result.get("output", {})
+            pdf_base64 = output.get("main.pdf")
+            
             if not pdf_base64:
-                raise RuntimeError("No PDF returned from CLSI")
+                # Try alternative format
+                pdf_base64 = result.get("pdf")
+            
+            if not pdf_base64:
+                raise RuntimeError("No PDF returned from CLSI. Compilation may have failed.")
             
             # Decode base64 PDF
-            pdf_bytes = base64.b64decode(pdf_base64)
+            try:
+                pdf_bytes = base64.b64decode(pdf_base64)
+            except Exception as e:
+                raise RuntimeError(f"Failed to decode PDF from CLSI: {str(e)}")
+            
+            logger.info(f"Successfully compiled LaTeX to PDF ({len(pdf_bytes)} bytes)")
             return pdf_bytes
             
         except httpx.HTTPError as e:
             raise RuntimeError(f"CLSI request failed: {str(e)}")
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid JSON response from CLSI: {str(e)}")
         finally:
             await self.client.aclose()
     
