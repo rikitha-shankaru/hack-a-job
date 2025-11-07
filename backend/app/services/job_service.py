@@ -352,7 +352,7 @@ class JobService:
         
         return any(pattern in url_lower for pattern in exclude_patterns)
     
-    def _is_valid_job(self, job_data: dict, location_filter: Optional[str] = None) -> bool:
+    def _is_valid_job(self, job_data: dict, location_filter: Optional[str] = None, html: Optional[str] = None) -> bool:
         """
         Simplified job validation - only reject clearly invalid jobs
         Be lenient and accept most jobs from known job boards
@@ -388,13 +388,40 @@ class JobService:
                 'homepage', 'home page', 'welcome', 'sign in', 'log in', 'login',
                 'privacy policy', 'terms of service', 'about us', 'contact us',
                 'request blocked', 'help us protect', 'blocked', 'access denied',
-                'page not found', '404', 'error', 'forbidden'
+                'page not found', '404', 'error', 'forbidden', 'not found',
+                'company not specified', 'not specified'
             ]
             
             # Reject generic page titles and error pages
             if any(generic in title_lower for generic in generic_page_titles):
                 print(f"❌ Rejecting: Generic/error page title '{title}' - {url[:50]}")
                 return False
+            
+            # Reject titles that start with numbers (parsing errors like "33Data")
+            if title and len(title) > 0 and title[0].isdigit():
+                # Check if it's a valid format (like "2024 Software Engineer") vs invalid ("33Data")
+                words = title.split()
+                if len(words) > 0 and words[0].isdigit() and len(words[0]) <= 2:
+                    # Short number prefix (like "33") is likely a parsing error
+                    print(f"❌ Rejecting: Invalid title format '{title}' - {url[:50]}")
+                    return False
+            
+            # Check HTML content for error indicators (including non-English)
+            if html:
+                html_lower = html.lower()
+                # Common error page indicators in various languages
+                error_indicators = [
+                    'page not found', '404', 'error', 'not found',
+                    'لم يتم العثور',  # Arabic: "not found"
+                    'صفحة غير موجودة',  # Arabic: "page not found"
+                    'página no encontrada',  # Spanish
+                    'seite nicht gefunden',  # German
+                    'ページが見つかりません',  # Japanese
+                    'страница не найдена'  # Russian
+                ]
+                if any(indicator in html_lower for indicator in error_indicators):
+                    print(f"❌ Rejecting: Error page detected in HTML '{title}' - {url[:50]}")
+                    return False
             
             # Check for unavailable jobs
             if jd_text:
@@ -446,6 +473,37 @@ class JobService:
         if not company and not jd_text:
             print(f"❌ Rejecting: No company or description - {url[:50]}")
             return False
+        
+        # Reject if company is "Company not specified" or similar
+        if company:
+            company_lower = company.lower()
+            if any(phrase in company_lower for phrase in ['not specified', 'not available', 'unknown', 'n/a', 'na']):
+                print(f"❌ Rejecting: Invalid company name '{company}' - {url[:50]}")
+                return False
+        
+        # Reject titles that start with numbers (parsing errors like "33Data")
+        if title and len(title) > 0 and title[0].isdigit():
+            words = title.split()
+            if len(words) > 0 and words[0].isdigit() and len(words[0]) <= 2:
+                # Short number prefix (like "33") is likely a parsing error
+                print(f"❌ Rejecting: Invalid title format '{title}' - {url[:50]}")
+                return False
+        
+        # Check HTML content for error indicators (including non-English)
+        if html:
+            html_lower = html.lower()
+            error_indicators = [
+                'page not found', '404', 'error', 'not found',
+                'لم يتم العثور',  # Arabic: "not found"
+                'صفحة غير موجودة',  # Arabic: "page not found"
+                'página no encontrada',  # Spanish
+                'seite nicht gefunden',  # German
+                'ページが見つかりません',  # Japanese
+                'страница не найдена'  # Russian
+            ]
+            if any(indicator in html_lower for indicator in error_indicators):
+                print(f"❌ Rejecting: Error page detected in HTML '{title}' - {url[:50]}")
+                return False
         
         # Check for unavailable jobs
         if jd_text:
