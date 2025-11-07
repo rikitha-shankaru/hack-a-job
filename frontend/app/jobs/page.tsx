@@ -260,7 +260,7 @@ function JobsPageContent() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:via-indigo-700 hover:to-purple-700 disabled:opacity-50 font-semibold shadow-lg hover:shadow-2xl btn-magic animate-gradient relative overflow-hidden transform hover:scale-105 transition-all duration-300"
+            className="mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
           >
             {loading ? (
               <span className="relative z-10 flex items-center justify-center gap-2">
@@ -285,11 +285,9 @@ function JobsPageContent() {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
                 <div
-                  className="bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500 h-4 rounded-full transition-all duration-300 ease-out relative overflow-hidden animate-gradient"
+                  className="bg-gradient-to-r from-purple-500 to-indigo-500 h-4 rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${progress}%` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
-                </div>
+                />
               </div>
             </div>
           )}
