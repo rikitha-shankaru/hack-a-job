@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import JobSearchRequest, JobSearchResponse, JobResponse
 from app.services.job_service import JobService
+from app.utils.bm25_ranker import BM25Ranker
 from app.models import Job
 from datetime import date, timedelta
 from functools import lru_cache
@@ -43,8 +44,20 @@ async def search_jobs(
             db=db
         )
         
-        # Return up to 100 jobs (user requested 50-100)
-        jobs_to_return = jobs[:100]
+        # Rank jobs using BM25 algorithm
+        if jobs:
+            ranker = BM25Ranker()
+            # Combine query and location for better ranking
+            search_query = request.query
+            if request.location:
+                search_query = f"{request.query} {request.location}"
+            
+            # Rank all jobs
+            ranked_jobs = ranker.rank(jobs, search_query, top_k=100)
+            # Extract just the jobs (drop scores)
+            jobs_to_return = [job for job, score in ranked_jobs]
+        else:
+            jobs_to_return = []
         
         response = JobSearchResponse(
             jobs=[
