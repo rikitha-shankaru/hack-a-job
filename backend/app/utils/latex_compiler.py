@@ -25,16 +25,17 @@ class LaTeXCompiler:
         self.use_docker_latex = False
         try:
             import docker
-            self.docker_client = docker.from_env()
-            # Test Docker connection
-            self.docker_client.ping()
-            self.use_docker_latex = True
-            logger.info("Docker available - will use Docker TeX Live for LaTeX compilation")
+            try:
+                self.docker_client = docker.from_env()
+                # Test Docker connection
+                self.docker_client.ping()
+                self.use_docker_latex = True
+                logger.info("Docker available - will use Docker TeX Live for LaTeX compilation")
+            except (docker.errors.DockerException, Exception) as e:
+                logger.info(f"Docker daemon not running: {e}. Will use local pdflatex or fallback.")
+                self.use_docker_latex = False
         except ImportError:
             logger.info("Docker Python library not installed. Install with: pip install docker")
-            self.use_docker_latex = False
-        except (Exception, AttributeError) as e:
-            logger.info(f"Docker not available: {e}. Will use local pdflatex or fallback.")
             self.use_docker_latex = False
         
         # Check if pdflatex is available locally
@@ -159,7 +160,8 @@ class LaTeXCompiler:
                     self.docker_client.images.pull('texlive/texlive:latest')
                 
                 # Run compilation in container
-                container = self.docker_client.containers.run(
+                import docker
+                container_output = self.docker_client.containers.run(
                     image='texlive/texlive:latest',
                     command=f'sh -c "cd /workspace && pdflatex -interaction=nonstopmode resume.tex && pdflatex -interaction=nonstopmode resume.tex && cp resume.pdf /output/{output_filename_basename}"',
                     volumes={
@@ -178,13 +180,16 @@ class LaTeXCompiler:
                 else:
                     raise RuntimeError("Docker TeX Live compilation completed but no PDF was generated")
                     
-            except docker.errors.ImageNotFound:
-                # Pull the image and retry
-                logger.info("Pulling TeX Live Docker image...")
-                self.docker_client.images.pull('texlive/texlive:latest')
-                return await self._compile_with_docker_texlive(latex_content, output_filename)
             except Exception as e:
-                raise RuntimeError(f"Docker TeX Live compilation failed: {str(e)}")
+                # Check if it's an image not found error
+                import docker
+                if isinstance(e, docker.errors.ImageNotFound):
+                    # Pull the image and retry
+                    logger.info("Pulling TeX Live Docker image (first time, may take a minute)...")
+                    self.docker_client.images.pull('texlive/texlive:latest')
+                    return await self._compile_with_docker_texlive(latex_content, output_filename)
+                else:
+                    raise RuntimeError(f"Docker TeX Live compilation failed: {str(e)}")
         finally:
             # Clean up temp directory
             if os.path.exists(temp_dir):
