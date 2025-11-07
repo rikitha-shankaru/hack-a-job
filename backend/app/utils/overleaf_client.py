@@ -67,15 +67,17 @@ class OverleafClient:
         }
         
         # Prepare request payload according to CLSI API spec
+        # CLSI expects: { "compile": { "options": {...}, "files": {...}, "rootResourcePath": "..." } }
         payload = {
             "compile": {
                 "options": {
                     "compiler": compiler,
-                    "timeout": 60
-                }
-            },
-            "files": files_dict,
-            "rootResourcePath": "main.tex"
+                    "timeout": 60,
+                    "imageName": "texlive/texlive:latest"  # Use standard TeX Live image
+                },
+                "files": files_dict,
+                "rootResourcePath": "main.tex"
+            }
         }
         
         headers = {

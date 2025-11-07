@@ -6,9 +6,29 @@ This guide explains how to set up Overleaf CLSI (Common LaTeX Service Interface)
 
 Overleaf CLSI is Overleaf's open-source LaTeX compilation service. It allows you to compile LaTeX documents to PDF programmatically without installing LaTeX locally.
 
-## Option 1: Using Docker (Recommended)
+## Quick Start (Recommended)
 
-The easiest way to run Overleaf CLSI is using Docker:
+Use the provided Docker Compose file:
+
+```bash
+# Start Overleaf CLSI
+docker-compose -f docker-compose.overleaf.yml up -d
+
+# Verify it's running
+curl http://localhost:3013/health
+```
+
+This will start CLSI on `http://localhost:3013` with proper configuration.
+
+## Option 1: Using Docker Compose (Easiest)
+
+The project includes `docker-compose.overleaf.yml` for easy setup:
+
+```bash
+docker-compose -f docker-compose.overleaf.yml up -d
+```
+
+## Option 2: Using Docker Directly
 
 ```bash
 # Pull and run the CLSI Docker image
@@ -17,29 +37,6 @@ docker run -d \
   -p 3013:3013 \
   --restart unless-stopped \
   overleaf/clsi
-```
-
-This will start CLSI on `http://localhost:3013`
-
-## Option 2: Using Docker Compose
-
-Create a `docker-compose.yml` file:
-
-```yaml
-version: '3.8'
-services:
-  clsi:
-    image: overleaf/clsi
-    ports:
-      - "3013:3013"
-    restart: unless-stopped
-    environment:
-      - CLSI_APP_NAME=Hack-A-Job
-```
-
-Then run:
-```bash
-docker-compose up -d
 ```
 
 ## Configuration

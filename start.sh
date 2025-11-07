@@ -5,6 +5,15 @@
 echo "🚀 Starting Hack-A-Job Application..."
 echo ""
 
+# Check if Overleaf CLSI is running (optional)
+if docker ps | grep -q overleaf-clsi; then
+    echo "✅ Overleaf CLSI is running"
+else
+    echo "ℹ️  Overleaf CLSI not detected. LaTeX will use local pdflatex if available."
+    echo "   To use Overleaf CLSI, run: docker-compose -f docker-compose.overleaf.yml up -d"
+fi
+echo ""
+
 # Check if .env exists
 if [ ! -f "backend/.env" ]; then
     echo "⚠️  .env file not found!"

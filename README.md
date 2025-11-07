@@ -22,7 +22,7 @@
 - **AI**: Google Gemini API (Gemini 2.0 Flash)
 - **Database**: PostgreSQL with pgvector
 - **Search**: Google Custom Search JSON API
-- **Formatting**: LaTeX/Overleaf for resume preservation
+- **Formatting**: LaTeX/Overleaf CLSI for resume preservation
 - **Autofill**: Playwright + Gemini for intelligent form filling
 
 ## Setup
@@ -69,6 +69,16 @@ cp .env.example .env
 # - GOOGLE_CSE_CX (required)
 # - DATABASE_URL (required)
 # - SMTP credentials (for email)
+# - OVERLEAF_CLSI_URL=http://localhost:3013 (optional, for Overleaf compilation)
+```
+
+**Optional: Start Overleaf CLSI for LaTeX compilation:**
+```bash
+# Start Overleaf CLSI (recommended for best LaTeX formatting)
+docker-compose -f docker-compose.overleaf.yml up -d
+
+# Verify it's running
+curl http://localhost:3013/health
 ```
 
 Run migrations:

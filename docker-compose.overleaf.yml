@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  overleaf-clsi:
+    image: overleaf/clsi:latest
+    container_name: hack-a-job-overleaf-clsi
+    ports:
+      - "3013:3013"
+    restart: unless-stopped
+    environment:
+      - CLSI_APP_NAME=Hack-A-Job
+      - CLSI_LISTEN_ADDRESS=0.0.0.0
+      - CLSI_LISTEN_PORT=3013
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3013/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - hack-a-job-network
+
+networks:
+  hack-a-job-network:
+    driver: bridge
+
