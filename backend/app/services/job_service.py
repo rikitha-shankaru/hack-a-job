@@ -400,8 +400,10 @@ class JobService:
             if jd_text:
                 jd_lower = jd_text.lower()
                 unavailable_indicators = [
-                    'no longer available', 'position has been filled', 'this job is closed',
-                    'application closed', 'position closed', 'expired', 'unavailable', 'filled'
+                    'no longer available', 'no longer accepting', 'no longer accepting applications',
+                    'position has been filled', 'this job is closed',
+                    'application closed', 'position closed', 'expired', 'unavailable', 'filled',
+                    'not accepting applications', 'applications closed'
                 ]
                 if any(indicator in jd_lower for indicator in unavailable_indicators):
                     print(f"❌ Rejecting: Unavailable job '{title}' - {url[:50]}")

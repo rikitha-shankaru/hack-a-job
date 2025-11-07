@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 import json
 import asyncio
 import time
+import re
 from google.api_core import retry
 
 class GeminiClient:
@@ -13,6 +14,52 @@ class GeminiClient:
         genai.configure(api_key=settings.google_gemini_api_key)
         # Use gemini-2.0-flash (latest stable, fast and efficient)
         self.model = genai.GenerativeModel('gemini-2.0-flash')
+    
+    def _extract_json_from_text(self, text: str) -> str:
+        """Extract JSON from text that may contain conversational text around it"""
+        if not text:
+            raise ValueError("Empty text provided")
+        
+        text = text.strip()
+        
+        # Remove markdown code blocks
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+        
+        # Try to find JSON object boundaries
+        # Look for first { and last }
+        first_brace = text.find('{')
+        last_brace = text.rfind('}')
+        
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            # Extract JSON between braces
+            json_candidate = text[first_brace:last_brace + 1]
+            # Try to parse it
+            try:
+                json.loads(json_candidate)
+                return json_candidate
+            except json.JSONDecodeError:
+                pass
+        
+        # If that didn't work, try to find JSON array boundaries
+        first_bracket = text.find('[')
+        last_bracket = text.rfind(']')
+        
+        if first_bracket != -1 and last_bracket != -1 and last_bracket > first_bracket:
+            json_candidate = text[first_bracket:last_bracket + 1]
+            try:
+                json.loads(json_candidate)
+                return json_candidate
+            except json.JSONDecodeError:
+                pass
+        
+        # Last resort: try parsing the whole text
+        return text
     
     async def parse_resume(self, resume_text: str) -> Dict[str, Any]:
         """Parse resume text into structured JSON using Gemini"""
@@ -75,18 +122,10 @@ Output only the JSON object, no other text."""
         if not result_text:
             raise ValueError("Empty response text from Gemini API")
         
-        # Clean up response (remove markdown code blocks if present)
-        if result_text.startswith("```json"):
-            result_text = result_text[7:]
-        if result_text.startswith("```"):
-            result_text = result_text[3:]
-        if result_text.endswith("```"):
-            result_text = result_text[:-3]
-        result_text = result_text.strip()
-        
-        # Parse JSON with error handling
+        # Extract JSON from response (may have conversational text)
         try:
-            return json.loads(result_text)
+            json_text = self._extract_json_from_text(result_text)
+            return json.loads(json_text)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
     
@@ -142,18 +181,10 @@ Output ONLY valid JSON with the same structure. MUST include name, email, phone,
         if not result_text:
             raise ValueError("Empty response text from Gemini API")
         
-        # Clean up response
-        if result_text.startswith("```json"):
-            result_text = result_text[7:]
-        if result_text.startswith("```"):
-            result_text = result_text[3:]
-        if result_text.endswith("```"):
-            result_text = result_text[:-3]
-        result_text = result_text.strip()
-        
-        # Parse JSON with error handling
+        # Extract JSON from response (may have conversational text)
         try:
-            result = json.loads(result_text)
+            json_text = self._extract_json_from_text(result_text)
+            result = json.loads(json_text)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
         
