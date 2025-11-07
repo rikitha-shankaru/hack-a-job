@@ -336,18 +336,10 @@ Example: {{"recommendations": ["Add keyword X to skills section", "Emphasize Y e
         if not result_text:
             raise ValueError("Empty response text from Gemini API")
         
-        # Clean up
-        if result_text.startswith("```json"):
-            result_text = result_text[7:]
-        if result_text.startswith("```"):
-            result_text = result_text[3:]
-        if result_text.endswith("```"):
-            result_text = result_text[:-3]
-        result_text = result_text.strip()
-        
-        # Parse JSON with error handling
+        # Extract JSON from response (may have conversational text)
         try:
-            result = json.loads(result_text)
+            json_text = self._extract_json_from_text(result_text)
+            result = json.loads(json_text)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
         
@@ -394,18 +386,10 @@ Be objective and thorough."""
         if not result_text:
             raise ValueError("Empty response text from Gemini API")
         
-        # Clean up
-        if result_text.startswith("```json"):
-            result_text = result_text[7:]
-        if result_text.startswith("```"):
-            result_text = result_text[3:]
-        if result_text.endswith("```"):
-            result_text = result_text[:-3]
-        result_text = result_text.strip()
-        
-        # Parse JSON with error handling
+        # Extract JSON from response (may have conversational text)
         try:
-            return json.loads(result_text)
+            json_text = self._extract_json_from_text(result_text)
+            return json.loads(json_text)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON response from Gemini API: {str(e)}\nResponse: {result_text[:500]}")
     
