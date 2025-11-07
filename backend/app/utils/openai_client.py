@@ -92,44 +92,76 @@ Output ONLY valid JSON with the same structure. MUST include name, email, phone,
         jd_keywords: List[str]
     ) -> Dict[str, Any]:
         """Generate authentic, human-sounding cover letter using OpenAI"""
+        # Extract key achievements and projects from resume for context
+        experience = resume_json.get("experience", [])
+        projects = resume_json.get("projects", [])
+        skills = resume_json.get("skills", [])
+        
+        # Build context about user's actual experience
+        experience_summary = []
+        for exp in experience[:2]:  # Top 2 experiences
+            company_name = exp.get("company", "")
+            title = exp.get("title", "")
+            bullets = exp.get("bullets", [])[:2]  # Top 2 bullets
+            if company_name and title:
+                exp_text = f"{title} at {company_name}: {', '.join(bullets[:2])}"
+                experience_summary.append(exp_text)
+        
+        projects_summary = []
+        for proj in projects[:2]:  # Top 2 projects
+            name = proj.get("name", "")
+            bullets = proj.get("bullets", [])[:1]  # Top bullet
+            if name:
+                projects_summary.append(f"{name}: {bullets[0] if bullets else ''}")
+        
         prompt = f"""Write a cover letter that sounds like a real person wrote it. Be direct, specific, and avoid corporate speak.
 
 CRITICAL RULES:
-1. SOUND HUMAN: Write like you're emailing a hiring manager directly. Casual but professional.
-2. NO CLICHÉS: Avoid "excited to apply", "perfect candidate", "passionate about", "thrilled", "eager". Just be direct.
-3. USE REAL FACTS: Only reference actual projects, companies, and metrics from the resume.
-4. BE SPECIFIC: Name actual projects, companies, technologies. Don't use vague statements.
-5. SHORT SENTENCES: Keep sentences under 20 words. Be clear and direct.
-6. NO FLUFF: Cut unnecessary words. Get to the point.
+1. SOUND HUMAN: Write like you're emailing a hiring manager directly. Casual but professional. Use "I" and "my" naturally.
+2. NO CLICHÉS: Avoid "excited to apply", "perfect candidate", "passionate about", "thrilled", "eager", "I believe", "I think". Just state facts directly.
+3. USE REAL FACTS ONLY: Reference ONLY actual projects, companies, technologies, and metrics from the resume below. Never invent or assume.
+4. BE SPECIFIC: Name actual projects, companies, technologies. Use exact names from the resume. Don't use vague statements.
+5. SHORT SENTENCES: Keep sentences under 15 words. Be clear and direct. One idea per sentence.
+6. NO FLUFF: Cut unnecessary words. Get to the point immediately.
+7. ACTIVE VOICE: Use active voice. "I built X" not "X was built by me".
 
 WHAT TO AVOID:
-- Corporate jargon ("leverage", "synergy", "utilize")
-- Overly formal language ("I am writing to express my interest")
-- Generic statements ("I have experience in software development")
-- Exclamation points
-- Em dashes
-- Semicolons
+- Corporate jargon ("leverage", "synergy", "utilize", "implement", "facilitate")
+- Overly formal language ("I am writing to express my interest", "I would like to")
+- Generic statements ("I have experience in software development" - too vague)
+- Exclamation points (never use them)
+- Em dashes (use periods or commas instead)
+- Semicolons (use periods instead)
+- Phrases like "I believe", "I think", "I feel" (just state facts)
 
 STRUCTURE (200-250 words total):
-- Opening (2 sentences): "I saw the [Role] position at [Company]. [One specific reason why it's interesting]."
-- Three bullets: Each connects a REAL achievement from resume to job requirement. Use actual project names, companies, metrics.
-- Closing (2 sentences): "I'd like to discuss how my experience can help [Company]. I'm available to talk this week."
+- Opening (2 sentences, max 200 chars): "I saw the [Role] position at [Company]. [One SPECIFIC reason from job description why it's interesting - mention actual technology or project type]."
+- Three bullets (each 1-2 sentences, max 100 chars each): Each connects a REAL achievement from resume to job requirement. Use actual project names, company names, technologies, and metrics. Format: "At [Company], I [specific action] that [specific result/metric]."
+- Closing (2 sentences, max 150 chars): "I'd like to discuss how my experience with [specific technology/project from resume] can help [Company]. I'm available to talk this week."
 
-Resume JSON:
-{json.dumps(resume_json, indent=2)}
+Resume Context:
+Experience: {', '.join(experience_summary)}
+Projects: {', '.join(projects_summary)}
+Skills: {', '.join(skills[:10])}
 
 Company: {company}
-Job Description:
-{job_description[:800]}
+Job Description (key requirements):
+{job_description[:1000]}
 
-Output JSON:
+Job Keywords: {', '.join(jd_keywords[:15])}
+
+Output JSON (ONLY output valid JSON, no other text):
 {{
-  "opening": "2 sentences, max 200 chars, direct and specific",
-  "mapping": ["bullet 1 with actual project/company name", "bullet 2 with actual project/company name", "bullet 3 with actual project/company name"],
-  "closing": "2 sentences, max 150 chars, direct and professional"
+  "opening": "2 sentences, max 200 chars, direct and specific. Mention actual technology or project type from job description.",
+  "mapping": [
+    "bullet 1: Connect REAL experience to job requirement. Use actual company/project name and metric.",
+    "bullet 2: Connect REAL experience to job requirement. Use actual company/project name and metric.",
+    "bullet 3: Connect REAL experience to job requirement. Use actual company/project name and metric."
+  ],
+  "closing": "2 sentences, max 150 chars, direct and professional. Mention specific technology/project from resume."
 }}
 
-Write like a real person, not AI. Be direct, specific, and genuine."""
+CRITICAL: Write like a real person wrote this, not AI. Be direct, specific, and genuine. Use ONLY facts from the resume. Never invent anything."""
         
         try:
             response = await self.client.chat.completions.create(

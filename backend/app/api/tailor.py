@@ -63,8 +63,9 @@ async def tailor_resume(
 ):
     """Generate tailored resume and cover letter for a job"""
     try:
-        # Validate user and job exist
-        user = db.query(User).filter(User.id == request.userId).first()
+        # Validate user and job exist with eager loading to prevent N+1 queries
+        from sqlalchemy.orm import joinedload
+        user = db.query(User).options(joinedload(User.profile)).filter(User.id == request.userId).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         

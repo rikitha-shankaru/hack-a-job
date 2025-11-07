@@ -397,6 +397,19 @@ class JobService:
                 print(f"❌ Rejecting: Generic/error page title '{title}' - {url[:50]}")
                 return False
             
+            # Additional checks: reject titles that are clearly not job postings
+            # Check for common non-job patterns in titles
+            non_job_patterns = [
+                'women in tech', 'event', 'workshop', 'conference', 'meetup',
+                'news', 'article', 'blog', 'story', 'press release',
+                'salary', 'interview', 'review', 'rating', 'comparison',
+                'guide', 'how to', 'tips', 'advice', 'career advice',
+                'resume template', 'cover letter template', 'sample'
+            ]
+            if any(pattern in title_lower for pattern in non_job_patterns):
+                print(f"❌ Rejecting: Non-job pattern in title '{title}' - {url[:50]}")
+                return False
+            
             # Reject titles that start with numbers (parsing errors like "33Data")
             if title and len(title) > 0 and title[0].isdigit():
                 # Check if it's a valid format (like "2024 Software Engineer") vs invalid ("33Data")
@@ -463,10 +476,23 @@ class JobService:
             'homepage', 'home page', 'welcome', 'just a moment',
             'sorry, you have been blocked', 'headlines', 'upcoming events',
             'request blocked', 'help us protect', 'blocked', 'access denied',
-            'page not found', '404', 'error', 'forbidden'
+            'page not found', '404', 'error', 'forbidden', 'loading',
+            'redirecting', 'please wait', 'checking your browser'
         ]
         if any(generic in title_lower for generic in generic_titles):
             print(f"❌ Rejecting: Generic/error title '{title}' - {url[:50]}")
+            return False
+        
+        # Additional checks: reject titles that are clearly not job postings
+        non_job_patterns = [
+            'women in tech', 'event', 'workshop', 'conference', 'meetup',
+            'news', 'article', 'blog', 'story', 'press release',
+            'salary', 'interview', 'review', 'rating', 'comparison',
+            'guide', 'how to', 'tips', 'advice', 'career advice',
+            'resume template', 'cover letter template', 'sample'
+        ]
+        if any(pattern in title_lower for pattern in non_job_patterns):
+            print(f"❌ Rejecting: Non-job pattern in title '{title}' - {url[:50]}")
             return False
         
         # Reject if no company AND no job description

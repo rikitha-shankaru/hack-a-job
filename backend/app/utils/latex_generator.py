@@ -223,10 +223,27 @@ ${projects}
         
         # Replace header placeholders (handle both ${var} and {var} formats)
         # Also handle cases where links might be in the header
+        # Use regex to handle variations and preserve formatting
+        import re
+        
+        # Replace name (handle various formats)
+        latex = re.sub(r'\$\{name\}|\{name\}', self._escape_latex(name), latex)
         latex = latex.replace("${name}", self._escape_latex(name))
+        
+        # Replace email
+        latex = re.sub(r'\$\{email\}|\{email\}', self._escape_latex(email), latex)
         latex = latex.replace("${email}", self._escape_latex(email))
+        
+        # Replace phone
+        latex = re.sub(r'\$\{phone\}|\{phone\}', self._escape_latex(phone), latex)
         latex = latex.replace("${phone}", self._escape_latex(phone))
+        
+        # Replace location
+        latex = re.sub(r'\$\{location\}|\{location\}', self._escape_latex(location), latex)
         latex = latex.replace("${location}", self._escape_latex(location))
+        
+        # Replace links
+        latex = re.sub(r'\$\{links\}|\{links\}', links_text, latex)
         latex = latex.replace("${links}", links_text)
         
         # Also handle if links are part of contact info (common pattern)
@@ -245,8 +262,9 @@ ${projects}
                     latex = latex.replace(pattern, replacement)
                     break
         
-        # Format summary
+        # Format summary - handle both ${summary} and {summary} formats
         summary = self._escape_latex(resume_json.get("summary", ""))
+        latex = re.sub(r'\$\{summary\}|\{summary\}', summary, latex)
         latex = latex.replace("${summary}", summary)
         
         # Format experience - preserve original structure
@@ -266,6 +284,8 @@ ${projects}
                 experience_latex += f"    \\item {bullet_escaped}\n"
             experience_latex += "\\end{itemize}\n\\vspace{4pt}\n"
         
+        # Replace experience - handle both formats
+        latex = re.sub(r'\$\{experience\}|\{experience\}', experience_latex, latex)
         latex = latex.replace("${experience}", experience_latex)
         
         # Format education
