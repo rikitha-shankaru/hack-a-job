@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  latex-compiler:
+    image: texlive/texlive:latest
+    container_name: hack-a-job-latex-compiler
+    volumes:
+      - ./backend/uploads/pdfs:/workspace
+    working_dir: /workspace
+    command: tail -f /dev/null  # Keep container running
+    networks:
+      - hack-a-job-network
+
+networks:
+  hack-a-job-network:
+    driver: bridge
+
