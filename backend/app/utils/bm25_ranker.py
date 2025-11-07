@@ -101,13 +101,16 @@ class BM25Ranker:
             all_terms.update(doc_tokens)
         
         # Calculate IDF (Inverse Document Frequency) for each term
+        # Standard BM25 IDF formula: log((N - df + 0.5) / (df + 0.5))
         num_docs = len(self.documents)
         for term in all_terms:
-            # Count how many documents contain this term
+            # Count how many documents contain this term (document frequency)
             doc_count = sum(1 for df in self.doc_freqs if term in df)
-            # IDF formula: log((N - df + 0.5) / (df + 0.5))
-            # Add 0.5 to avoid division by zero
-            idf_value = math.log((num_docs - doc_count + 0.5) / (doc_count + 0.5) + 1.0)
+            # BM25 IDF formula with smoothing
+            if doc_count == 0:
+                idf_value = math.log(num_docs + 0.5)
+            else:
+                idf_value = math.log((num_docs - doc_count + 0.5) / (doc_count + 0.5))
             self.idf[term] = idf_value
     
     def score(self, query: str, doc_index: int) -> float:
@@ -141,12 +144,25 @@ class BM25Ranker:
             if tf == 0:
                 continue
             
-            # BM25 formula:
-            # score = IDF(term) * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (doc_len / avg_doc_len)))
+            # Standard BM25 formula:
+            # score = IDF(term) * (tf * (k1 + 1)) / (tf + k1 * ((1 - b) + b * (doc_len / avg_doc_len)))
+            # Where:
+            # - IDF = log((N - df + 0.5) / (df + 0.5))
+            # - tf = term frequency in document
+            # - k1 = term frequency saturation (default 1.5)
+            # - b = length normalization (default 0.75)
+            # - doc_len = document length
+            # - avg_doc_len = average document length
             idf = self.idf[term]
             numerator = tf * (self.k1 + 1)
-            denominator = tf + self.k1 * (1 - self.b + self.b * (doc_len / self.avg_doc_len if self.avg_doc_len > 0 else 1))
+            # Normalize document length
+            if self.avg_doc_len > 0:
+                length_norm = (1 - self.b) + self.b * (doc_len / self.avg_doc_len)
+            else:
+                length_norm = 1.0
+            denominator = tf + self.k1 * length_norm
             
+            # Sum scores for all query terms
             score += idf * (numerator / denominator)
         
         return score
@@ -172,7 +188,9 @@ class BM25Ranker:
             score = self.score(query, idx)
             scored_jobs.append((job, score))
         
-        # Sort by score (descending)
+        # Sort by score (descending), but filter out jobs with zero or negative scores
+        # (jobs with no matching terms should not appear in results)
+        scored_jobs = [(job, score) for job, score in scored_jobs if score > 0]
         scored_jobs.sort(key=lambda x: x[1], reverse=True)
         
         # Return top K if specified
