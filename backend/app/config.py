@@ -25,6 +25,15 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
     
+    # Overleaf/LaTeX Compilation
+    # Option 1: Use local pdflatex (default)
+    # Option 2: Use Overleaf CLSI (self-hosted) - set OVERLEAF_CLSI_URL
+    overleaf_clsi_url: Optional[str] = None  # e.g., "http://localhost:3013"
+    overleaf_clsi_key: Optional[str] = None  # CLSI API key if required
+    
+    # Backend URL for absolute URLs
+    backend_url: str = "http://localhost:8000"
+    
     class Config:
         env_file = ".env"
         case_sensitive = False

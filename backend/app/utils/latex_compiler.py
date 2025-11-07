@@ -4,15 +4,30 @@ import tempfile
 import shutil
 from typing import Optional
 import logging
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 class LaTeXCompiler:
-    """Compile LaTeX documents to PDF"""
+    """
+    Compile LaTeX documents to PDF
+    Supports both local pdflatex and Overleaf CLSI
+    """
     
     def __init__(self):
-        # Check if pdflatex is available
+        # Check if pdflatex is available locally
         self.has_pdflatex = self._check_pdflatex()
+        
+        # Check if Overleaf CLSI is configured
+        self.use_overleaf = bool(settings.overleaf_clsi_url)
+        if self.use_overleaf:
+            from app.utils.overleaf_client import OverleafClient
+            self.overleaf_client = OverleafClient(
+                settings.overleaf_clsi_url,
+                settings.overleaf_clsi_key
+            )
+        else:
+            self.overleaf_client = None
     
     def _check_pdflatex(self) -> bool:
         """Check if pdflatex is installed"""
@@ -31,11 +46,27 @@ class LaTeXCompiler:
         latex_content: str,
         output_filename: Optional[str] = None
     ) -> str:
-        """Compile LaTeX content to PDF"""
+        """
+        Compile LaTeX content to PDF
+        Uses Overleaf CLSI if configured, otherwise falls back to local pdflatex
+        """
+        # Try Overleaf CLSI first if configured
+        if self.use_overleaf and self.overleaf_client:
+            try:
+                logger.info("Using Overleaf CLSI for LaTeX compilation")
+                return await self.overleaf_client.compile_latex_to_file(
+                    latex_content,
+                    output_filename or os.path.join(tempfile.gettempdir(), "resume.pdf")
+                )
+            except Exception as e:
+                logger.warning(f"Overleaf CLSI compilation failed: {e}. Falling back to local pdflatex.")
+                # Fall through to local compilation
+        
+        # Fall back to local pdflatex
         if not self.has_pdflatex:
             raise RuntimeError(
-                "pdflatex is not installed. "
-                "Install TeX Live or MikTeX, or use Docker image 'texlive/texlive:latest'"
+                "pdflatex is not installed and Overleaf CLSI is not configured. "
+                "Install TeX Live or MikTeX, or set OVERLEAF_CLSI_URL in environment variables."
             )
         
         # Create temporary directory
